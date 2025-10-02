@@ -37,5 +37,13 @@ A minimal Python project to display images on a Waveshare 4-inch e-Paper HAT+ (E
 ## Code Style
 - Keep functions simple and focused
 - Use clear variable names
-- Add basic logging for debugging
+- **Minimal logging**: Only log errors, warnings, and major workflow steps
 - Handle exceptions gracefully
+- Avoid cluttering code with debug/info logs for routine operations
+
+## Logging Guidelines
+- **ERROR**: For failures that prevent operation
+- **WARNING**: For recoverable issues or missing resources
+- **INFO**: Only for major workflow milestones (startup, conversion batches, shutdown)
+- **DEBUG**: Avoid unless specifically debugging
+- **No logging for**: Successful routine operations, file I/O, basic function entry/exit

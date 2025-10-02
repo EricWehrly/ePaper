@@ -1,2 +1,10 @@
 pic
 pic-raw
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test outputs
+test/outputs/
