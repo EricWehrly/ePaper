@@ -4,6 +4,17 @@ Integration test for image quality scoring and ranking.
 
 This test evaluates and ranks all converted dithered images based on 
 quality metrics, providing insights into which images convert best.
+
+To use, run from the project root:
+    cd /home/eric/Projects/ePaper
+    python test/integration/test_scoring_integration.py
+
+The test will:
+1. Score all dithered images in test/outputs/dithering_comparison/
+2. Compare them against their originals in pic-raw/
+3. Provide both general quality scores and specialized skin tone analysis
+4. Rank images from best to worst conversion quality
+5. Save detailed logs to test/outputs/scoring_results.log
 """
 
 import sys
@@ -12,9 +23,9 @@ from pathlib import Path
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / 'src'))
+sys.path.insert(0, str(project_root))
 
-import scoring
+from src.scoring import rank_dithering_outputs
 
 
 def test_image_scoring_integration():
@@ -24,7 +35,7 @@ def test_image_scoring_integration():
     print("=" * 60)
     
     # Get rankings for all dithered images
-    rankings = scoring.rank_dithering_outputs()
+    rankings = rank_dithering_outputs()
     
     if not rankings:
         print("❌ No dithered images found to score")
@@ -45,19 +56,33 @@ def test_image_scoring_integration():
         
         # Show score breakdown
         breakdown = []
-        if 'color_diversity' in scores:
-            breakdown.append(f"Diversity: {scores['color_diversity']}")
-        if 'color_balance' in scores:
-            breakdown.append(f"Balance: {scores['color_balance']}")
-        if 'contrast' in scores:
-            breakdown.append(f"Contrast: {scores['contrast']}")
-        if 'detail_preservation' in scores:
-            breakdown.append(f"Detail: {scores['detail_preservation']}")
+        if 'structural_similarity' in scores:
+            breakdown.append(f"Structural: {scores['structural_similarity']}")
+        if 'color_fidelity' in scores:
+            breakdown.append(f"Color: {scores['color_fidelity']}")
+        if 'edge_preservation' in scores:
+            breakdown.append(f"Edges: {scores['edge_preservation']}")
             
         if breakdown:
             print(f"   📋 Breakdown: {', '.join(breakdown)}")
             
-        # Add quality assessment
+        # Show skin tone analysis
+        if 'skin_coverage_percent' in scores and scores['skin_coverage_percent'] > 0:
+            print(f"   👤 Skin Tone Analysis:")
+            print(f"      Coverage: {scores['skin_coverage_percent']}% of image")
+            print(f"      Skin Quality Score: {scores['skin_tone_score']}")
+            print(f"      Weighted Skin Score: {scores['weighted_skin_score']}")
+        else:
+            print(f"   👤 Skin Tone Analysis: No skin tones detected")
+            
+        # Show skin tone specific scoring
+        if 'skin_tone_score' in scores and 'skin_coverage' in scores:
+            skin_score = scores['skin_tone_score']
+            skin_coverage = scores['skin_coverage']
+            if skin_coverage > 0:
+                print(f"   � Skin Tones: Score {skin_score}, Coverage {skin_coverage}%")
+            else:
+                print("   👤 Skin Tones: None detected")        # Add quality assessment
         total_score = scores.get('total_score', 999)
         if total_score < 20:
             quality = "🌟 Excellent"

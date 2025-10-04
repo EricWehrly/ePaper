@@ -18,9 +18,14 @@ from pathlib import Path
 
 # Add the project root to Python path to import our modules
 project_root = Path(__file__).parent.parent
+# Ensure the project root is on sys.path so `from src import ...` works
+# when this file is executed as a script (python src/main.py) from the
+# project root. Also keep the Waveshare `lib` directory on the path.
+sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / 'lib'))
 
 from src import convert, filesystem, display
+from src.scoring import sort_images_by_quality
 
 # Configure logging
 logging.basicConfig(
@@ -79,6 +84,7 @@ class ePaperController:
             
         logger.info(f"Converting {len(source_images)} images...")
         
+        # TODO: Push the for loop down to the converter class and get the array back
         converted_images = []
         
         for source_path in source_images:
@@ -114,9 +120,12 @@ class ePaperController:
             logger.warning("No images to display")
             return
             
-        logger.info(f"Displaying {len(image_paths)} images...")
+        # Sort images by quality score (best first)
+        sorted_images = sort_images_by_quality(image_paths)
+            
+        logger.info(f"Displaying {len(sorted_images)} images in quality order...")
         
-        for image_path in image_paths:
+        for image_path in sorted_images:
             if not self.running:
                 break
                 
