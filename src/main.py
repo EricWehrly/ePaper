@@ -16,13 +16,9 @@ import logging
 import time
 from pathlib import Path
 
-# Add the project root to Python path to import our modules
-project_root = Path(__file__).parent.parent
-# Ensure the project root is on sys.path so `from src import ...` works
-# when this file is executed as a script (python src/main.py) from the
-# project root. Also keep the Waveshare `lib` directory on the path.
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / 'lib'))
+# Setup project paths for imports
+from src.path_utils import setup_project_paths, get_project_root
+setup_project_paths()
 
 from src import convert, filesystem, display
 from src.scoring import sort_images_by_quality
@@ -41,7 +37,13 @@ class ePaperController:
         self.running = True
         self.display_manager = None
         
+        # Display orientation - set via display module
+        # Portrait: 400x600 (tall), Landscape: 600x400 (wide)  
+        # Default to portrait mode (can be changed via set_orientation)
+        display.set_display_orientation(portrait_mode=True)
+        
         # Directory paths
+        project_root = get_project_root()
         self.source_dir = project_root / 'pic-raw'
         self.output_dir = project_root / 'pic'
         
@@ -49,7 +51,17 @@ class ePaperController:
         self.supported_extensions = {'.png', '.jpg', '.jpeg'}
         
         # Display timing
-        self.display_interval = 3.0  # seconds between images
+        # TODO: 22 in "release" build, 2 in "demo / test" mode ...
+        self.display_interval = 2.0  # seconds between images
+    
+    def set_orientation(self, portrait_mode):
+        """
+        Set display orientation. Note: This should be called before initialize_display().
+        
+        Args:
+            portrait_mode: True for portrait (400x600), False for landscape (600x400)
+        """
+        display.set_display_orientation(portrait_mode)
         
     def setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
@@ -73,45 +85,16 @@ class ePaperController:
         
     def scan_and_convert_images(self):
         """Scan source directory and convert images to display format"""
-        source_images = filesystem.scan_directory(
-            self.source_dir, 
-            extensions=self.supported_extensions
+        orientation_str = "portrait" if display.get_display_orientation() else "landscape"
+        logger.info(f"Converting images for {orientation_str} display orientation")
+        
+        converted_images = convert.convert_images_batch(
+            source_dir=self.source_dir,
+            output_dir=self.output_dir,
+            supported_extensions=self.supported_extensions,
+            filesystem_module=filesystem
         )
         
-        if not source_images:
-            logger.warning("No source images found")
-            return []
-            
-        logger.info(f"Converting {len(source_images)} images...")
-        
-        # TODO: Push the for loop down to the converter class and get the array back
-        converted_images = []
-        
-        for source_path in source_images:
-            try:
-                # Generate output filename
-                output_filename = source_path.stem + '.bmp'
-                output_path = self.output_dir / output_filename
-                
-                # Skip if already converted and up to date
-                if filesystem.is_file_newer(output_path, source_path):
-                    converted_images.append(output_path)
-                    continue
-                    
-                # Convert image
-                success = convert.convert_image_to_6color(
-                    str(source_path), 
-                    str(output_path)
-                )
-                
-                if success:
-                    converted_images.append(output_path)
-                else:
-                    logger.error(f"Failed to convert {source_path.name}")
-                    
-            except Exception as e:
-                logger.error(f"Error converting {source_path.name}: {e}")
-                
         return converted_images
         
     def display_cycle(self, image_paths):

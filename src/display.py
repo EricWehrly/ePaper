@@ -6,17 +6,50 @@ This module contains stubs for the main functionality to be implemented later.
 """
 
 import sys
-import os
 import logging
 from pathlib import Path
+from .path_utils import setup_project_paths, get_project_root
 
-# Add waveshare library to path
-project_root = Path(__file__).parent.parent
-lib_path = project_root / 'lib'
-if str(lib_path) not in sys.path:
-    sys.path.append(str(lib_path))
+project_root = get_project_root()
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    PIL_AVAILABLE = True
+except ImportError:
+    Image = ImageDraw = ImageFont = None
+    PIL_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+# Global display orientation configuration
+SHORT_SIDE = 400
+LONG_SIDE = 600
+_IS_PORTRAIT = True  # Default orientation
+
+
+def set_display_orientation(portrait_mode=True):
+    """Set the global display orientation for all display operations."""
+    global _IS_PORTRAIT
+    _IS_PORTRAIT = portrait_mode
+    orientation = "portrait" if _IS_PORTRAIT else "landscape"
+    width = get_display_width()
+    height = get_display_height()
+    logger.info(f"Display orientation set to: {orientation} ({width}x{height})")
+
+
+def get_display_orientation():
+    """Get the current display orientation."""
+    return _IS_PORTRAIT
+
+
+def get_display_width():
+    """Get the current display width based on orientation."""
+    return SHORT_SIDE if _IS_PORTRAIT else LONG_SIDE
+
+
+def get_display_height():
+    """Get the current display height based on orientation."""
+    return LONG_SIDE if _IS_PORTRAIT else SHORT_SIDE
 
 
 class DisplayError(Exception):
@@ -32,41 +65,57 @@ class DisplayManager:
     controlling, and cleaning up the e-Paper display.
     """
     
-    def __init__(self):
-        """Initialize the display manager"""
+    def __init__(self, blank_on_cleanup=True):
+        """
+        Initialize the display manager.
+        
+        Args:
+            blank_on_cleanup: If True, clear display to white during cleanup.
+                             If False, leave current image displayed.
+        """
         self.epd = None
-        self.is_initialized = False
-        self.width = 400
-        self.height = 600
+        self.blank_on_cleanup = blank_on_cleanup
+        
+        # Use global orientation settings
+        self.width = get_display_width()
+        self.height = get_display_height()
         
     def initialize(self):
         """
         Initialize the e-Paper display.
         
-        TODO: Implement full initialization using waveshare_epd.epd4in0e
-        - Import and create EPD instance
-        - Call epd.init()
-        - Store display dimensions
-        - Handle initialization errors
-        
         Raises:
             DisplayError: If initialization fails
         """
         try:
-            # TODO: Uncomment and implement when ready
-            # from waveshare_epd import epd4in0e
-            # 
-            # self.epd = epd4in0e.EPD()
-            # self.epd.init()
-            # 
-            # self.width = self.epd.width
-            # self.height = self.epd.height
+            if self.epd is not None:
+                logger.warning("Display already initialized")
+                return
             
-            # Stub implementation for now
-            logger.warning("Display initialization STUBBED")
+            # Try to import and initialize the display
+            # TODO: Try to move this import to the top of the file like it should be
+            setup_project_paths()
+            from waveshare_epd import epd4in0e
             
-            self.is_initialized = True
+            logger.info("Initializing Waveshare 4inch e-Paper HAT+ (E)...")
             
+            self.epd = epd4in0e.EPD()
+            self.epd.init()
+            
+            # Verify physical dimensions match expectations
+            physical_width = self.epd.width
+            physical_height = self.epd.height
+            
+            # Physical display should be 400x600 
+            if (physical_width, physical_height) != (400, 600):
+                logger.warning(f"Unexpected physical dimensions: {physical_width}x{physical_height}")
+            
+            # Keep logical dimensions based on global orientation
+            orientation = "portrait" if get_display_orientation() else "landscape"
+            logger.info(f"Display initialized in {orientation} mode: {self.width}x{self.height} (physical: {physical_width}x{physical_height})")
+            
+        except ImportError:
+            raise DisplayError("Waveshare library not available")
         except Exception as e:
             logger.error(f"Failed to initialize display: {e}")
             raise DisplayError(f"Display initialization failed: {e}")
@@ -75,28 +124,24 @@ class DisplayManager:
         """
         Clear the display to a solid color.
         
-        TODO: Implement display clearing
-        - Use epd.Clear() or epd.Clear(color)
-        - Handle different color options
-        
         Args:
             color: Color to clear to (None for default white)
             
         Raises:
             DisplayError: If clear operation fails
         """
-        if not self.is_initialized:
-            raise DisplayError("Display not initialized")
-            
         try:
-            # TODO: Implement actual clearing
-            # if color is not None:
-            #     self.epd.Clear(color)
-            # else:
-            #     self.epd.Clear()
+            if self.epd is None:
+                logger.info("Display clear (stubbed)")
+                return
+                
+            logger.info(f"Clearing display to {color or 'white'}...")
             
-            pass  # Stub
-            
+            if color is not None:
+                self.epd.Clear(color)
+            else:
+                self.epd.Clear()
+                
         except Exception as e:
             logger.error(f"Failed to clear display: {e}")
             raise DisplayError(f"Display clear failed: {e}")
@@ -105,42 +150,38 @@ class DisplayManager:
         """
         Display an image on the e-Paper screen.
         
-        TODO: Implement image display
-        - Load BMP image using PIL
-        - Convert to display buffer using epd.getbuffer()
-        - Display using epd.display()
-        - Add error handling for invalid images
-        
         Args:
             image_path: Path to BMP image file to display
             
         Raises:
             DisplayError: If image display fails
         """
-        if not self.is_initialized:
-            raise DisplayError("Display not initialized")
-            
         try:
             image_path = Path(image_path)
             
             if not image_path.exists():
                 raise DisplayError(f"Image file not found: {image_path}")
                 
-            # TODO: Implement actual image display
-            # from PIL import Image
-            # 
-            # # Load image
-            # image = Image.open(image_path)
-            # 
-            # # Ensure correct dimensions
-            # if image.size != (self.width, self.height):
-            #     logger.warning(f"Image size {image.size} doesn't match display {self.width}x{self.height}")
-            #     image = image.resize((self.width, self.height))
-            # 
-            # # Display on e-paper
-            # self.epd.display(self.epd.getbuffer(image))
+            if self.epd is None:
+                logger.info(f"Display image (stubbed): {image_path.name}")
+                return
+                
+            if not PIL_AVAILABLE:
+                raise DisplayError("PIL (Pillow) library not available for image processing")
             
-            pass  # Stub
+            logger.info(f"Displaying image: {image_path.name}")
+            
+            # Load image
+            image = Image.open(image_path)
+            
+            # Ensure correct dimensions
+            if image.size != (self.width, self.height):
+                logger.warning(f"Image size {image.size} doesn't match display {self.width}x{self.height}, resizing...")
+                image = image.resize((self.width, self.height), Image.Resampling.LANCZOS)
+            
+            # Display on e-paper
+            self.epd.display(self.epd.getbuffer(image))
+            logger.info("Image displayed successfully")
             
         except Exception as e:
             logger.error(f"Failed to display image {image_path}: {e}")
@@ -150,12 +191,6 @@ class DisplayManager:
         """
         Display text on the screen.
         
-        TODO: Implement text rendering
-        - Create image with PIL ImageDraw
-        - Load appropriate font
-        - Render text at specified position
-        - Display the resulting image
-        
         Args:
             text: Text string to display
             position: (x, y) position for text
@@ -164,31 +199,40 @@ class DisplayManager:
         Raises:
             DisplayError: If text display fails
         """
-        if not self.is_initialized:
-            raise DisplayError("Display not initialized")
-            
         try:
-            # TODO: Implement text rendering
-            # from PIL import Image, ImageDraw, ImageFont
-            # 
-            # # Create new image
-            # image = Image.new('RGB', (self.width, self.height), self.epd.WHITE)
-            # draw = ImageDraw.Draw(image)
-            # 
-            # # Load font (use default or load from pic/Font.ttc)
-            # try:
-            #     font_path = project_root / 'pic' / 'Font.ttc'
-            #     font = ImageFont.truetype(str(font_path), font_size)
-            # except:
-            #     font = ImageFont.load_default()
-            # 
-            # # Draw text
-            # draw.text(position, text, font=font, fill=self.epd.BLACK)
-            # 
-            # # Display
-            # self.epd.display(self.epd.getbuffer(image))
+            if self.epd is None:
+                logger.info(f"Display text (stubbed): {text}")
+                return
+                
+            if not PIL_AVAILABLE:
+                raise DisplayError("PIL (Pillow) library not available for text rendering")
             
-            pass  # Stub
+            logger.info(f"Displaying text: {text[:50]}...")
+            
+            # Get color constants - fallback to standard values if epd is None
+            white_color = self.epd.WHITE if self.epd else 255
+            black_color = self.epd.BLACK if self.epd else 0
+            
+            # Create new image with white background
+            image = Image.new('RGB', (self.width, self.height), white_color)
+            draw = ImageDraw.Draw(image)
+            
+            # Load font (try project font first, then default)
+            try:
+                font_path = project_root / 'pic' / 'Font.ttc'
+                if font_path.exists():
+                    font = ImageFont.truetype(str(font_path), font_size)
+                else:
+                    font = ImageFont.load_default()
+            except Exception:
+                font = ImageFont.load_default()
+            
+            # Draw text
+            draw.text(position, text, font=font, fill=black_color)
+            
+            # Display on e-paper
+            self.epd.display(self.epd.getbuffer(image))
+            logger.info("Text displayed successfully")
             
         except Exception as e:
             logger.error(f"Failed to display text: {e}")
@@ -198,21 +242,19 @@ class DisplayManager:
         """
         Put the display into sleep mode to preserve the screen.
         
-        TODO: Implement sleep mode
-        - Call epd.sleep()
-        - Handle any cleanup needed
-        
         Raises:
             DisplayError: If sleep operation fails
         """
-        if not self.is_initialized:
-            return
-            
         try:
-            # TODO: Implement actual sleep
-            # self.epd.sleep()
-            
-            pass  # Stub
+            # TODO: Why bother with this logger and encapsulating if condition?
+            # Should just be a no-op when epd is none
+            if self.epd is None:
+                logger.info("Display sleep (stubbed)")
+                return
+                
+            logger.info("Putting display to sleep...")
+            self.epd.sleep()
+            logger.info("Display is now in sleep mode")
             
         except Exception as e:
             logger.error(f"Failed to put display to sleep: {e}")
@@ -224,16 +266,26 @@ class DisplayManager:
         
         This should be called before program exit to ensure the display
         is properly shut down and preserved.
+        
+        The display will be blanked if blank_on_cleanup is True (default).
         """
         try:
+            # Optionally blank the display before cleanup
+            if self.blank_on_cleanup:
+                logger.info("Blanking display before cleanup...")
+                try:
+                    self.clear_display()
+                except Exception as e:
+                    logger.warning(f"Failed to blank display during cleanup: {e}")
+            else:
+                logger.info("Preserving display content during cleanup")
+            
             # Put display to sleep
             self.sleep()
             
             # TODO: Add any additional cleanup
             # - Reset GPIO pins if needed
             # - Clean up any allocated resources
-            
-            self.is_initialized = False
             
         except Exception as e:
             logger.error(f"Error during display cleanup: {e}")
@@ -246,10 +298,14 @@ class DisplayManager:
         Returns:
             dict: Display information (dimensions, color capabilities, etc.)
         """
+        orientation = "portrait" if get_display_orientation() else "landscape"
         return {
             'width': self.width,
             'height': self.height,
-            'initialized': self.is_initialized,
+            'orientation': orientation,
+            'portrait_mode': get_display_orientation(),
+            'initialized': self.epd is not None,
+            'blank_on_cleanup': self.blank_on_cleanup,
             'colors': ['BLACK', 'WHITE', 'YELLOW', 'RED', 'BLUE', 'GREEN'],
             'type': 'Waveshare 4inch e-Paper HAT+ (E)'
         }
@@ -258,25 +314,94 @@ class DisplayManager:
         """
         Test display functionality with built-in patterns.
         
-        TODO: Implement display test
-        - Show color blocks for each supported color
-        - Display test text
-        - Show simple graphics (lines, rectangles)
-        
         Raises:
             DisplayError: If test fails
         """
-        if not self.is_initialized:
-            raise DisplayError("Display not initialized")
-            
         try:
-            # TODO: Implement test patterns
-            # - Clear display
-            # - Show color test pattern
-            # - Display test text
-            # - Show geometric shapes
+            if self.epd is None:
+                logger.info("Display test (stubbed)")
+                return
+                
+            if not PIL_AVAILABLE:
+                raise DisplayError("PIL (Pillow) library not available for display test")
             
-            pass  # Stub
+            import time
+            
+            logger.info("Running display test...")
+            
+            # Clear display first
+            self.clear_display()
+            time.sleep(1)
+            
+            # Create test image
+            image = Image.new('RGB', (self.width, self.height), self.epd.WHITE)
+            draw = ImageDraw.Draw(image)
+            
+            # Color test blocks (top section)
+            colors = {
+                'BLACK': self.epd.BLACK,
+                'WHITE': self.epd.WHITE,
+                'YELLOW': self.epd.YELLOW,
+                'RED': self.epd.RED,
+                'BLUE': self.epd.BLUE,
+                'GREEN': self.epd.GREEN
+            }
+            
+            block_width = self.width // 3
+            block_height = 80
+            
+            x = 0
+            y = 50
+            for i, (name, color) in enumerate(colors.items()):
+                if i > 0 and i % 3 == 0:
+                    x = 0
+                    y += block_height + 10
+                    
+                # Draw color block
+                draw.rectangle([x, y, x + block_width - 5, y + block_height], fill=color)
+                
+                # Label (in contrasting color)
+                label_color = self.epd.WHITE if color == self.epd.BLACK else self.epd.BLACK
+                try:
+                    font = ImageFont.load_default()
+                    draw.text((x + 10, y + 10), name, font=font, fill=label_color)
+                except:
+                    pass
+                    
+                x += block_width
+            
+            # Test text (bottom section)
+            try:
+                font = ImageFont.load_default()
+                test_texts = [
+                    "ePaper Display Test",
+                    f"Resolution: {self.width}x{self.height}",
+                    "6-Color Support",
+                    "Waveshare 4inch HAT+ (E)"
+                ]
+                
+                text_y = y + block_height + 50
+                for text in test_texts:
+                    draw.text((20, text_y), text, font=font, fill=self.epd.BLACK)
+                    text_y += 30
+            except:
+                pass
+            
+            # Draw simple geometric shapes
+            # Rectangle outline
+            draw.rectangle([20, text_y + 20, 180, text_y + 80], outline=self.epd.BLACK, width=2)
+            
+            # Filled circle (approximate with polygon)
+            center_x, center_y = 100, text_y + 120
+            radius = 30
+            # Simple circle approximation
+            draw.ellipse([center_x - radius, center_y - radius, 
+                         center_x + radius, center_y + radius], 
+                        fill=self.epd.BLUE, outline=self.epd.BLACK)
+            
+            # Display the test pattern
+            self.epd.display(self.epd.getbuffer(image))
+            logger.info("Display test pattern shown successfully")
             
         except Exception as e:
             logger.error(f"Display test failed: {e}")

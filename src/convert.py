@@ -3,6 +3,10 @@ Enhanced Image Conversion Module with Floyd-Steinberg Dithering
 
 Implements Floyd-Steinberg dithering algorithm for much better image quality
 on e-Paper displays with limited color palettes.
+
+Supports both portrait (400x600) and landscape (600x400) orientations.
+The physical display is always 400x600, but orientation determines which
+dimension is treated as width vs height for image conversion and display.
 """
 
 import logging
@@ -23,9 +27,6 @@ PALETTE_6COLOR = np.array([
     [67, 138, 28],    # GREEN
 ], dtype=np.float32)
 
-# Target display resolution
-DISPLAY_WIDTH = 400
-DISPLAY_HEIGHT = 600
 
 
 def find_closest_palette_color(rgb_color):
@@ -149,28 +150,39 @@ def resize_image_to_display(image):
     Returns:
         PIL Image resized to display dimensions
     """
+    from .display import get_display_width, get_display_height
+    
+    display_width = get_display_width()
+    display_height = get_display_height()
+
+    # TODO: Account for whether we should rotate images
+    # (e.g. if image is landscape but display is portrait, we should rotate the image to match)
+    # For now, just do this to align longer sides (display is currently set to > height, so portrait mode)
+    # But we want to allow the display to be set for either presentation orientation,
+    # And the user to choose whether to auto-rotate images to fit or not.
+
     # Calculate aspect ratios
     img_aspect = image.width / image.height
-    display_aspect = DISPLAY_WIDTH / DISPLAY_HEIGHT
+    display_aspect = display_width / display_height
     
     if img_aspect > display_aspect:
         # Image is wider - fit to width
-        new_width = DISPLAY_WIDTH
-        new_height = int(DISPLAY_WIDTH / img_aspect)
+        new_width = display_width
+        new_height = int(display_width / img_aspect)
     else:
         # Image is taller - fit to height
-        new_height = DISPLAY_HEIGHT
-        new_width = int(DISPLAY_HEIGHT * img_aspect)
+        new_height = display_height
+        new_width = int(display_height * img_aspect)
     
     # Resize image with high-quality resampling
     resized = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
     
     # Create new image with display dimensions and paste resized image centered
-    final_image = Image.new('RGB', (DISPLAY_WIDTH, DISPLAY_HEIGHT), (255, 255, 255))
+    final_image = Image.new('RGB', (display_width, display_height), (255, 255, 255))
     
     # Calculate position to center the image
-    x_offset = (DISPLAY_WIDTH - new_width) // 2
-    y_offset = (DISPLAY_HEIGHT - new_height) // 2
+    x_offset = (display_width - new_width) // 2
+    y_offset = (display_height - new_height) // 2
     
     final_image.paste(resized, (x_offset, y_offset))
     
@@ -316,14 +328,85 @@ def convert_image_comparison(input_path, output_dir):
         return {}
 
 
-# Update the main conversion function to use dithering by default
-def convert_image_to_6color(input_path, output_path):
+# TODO: Set up visual comparison test between JPG and PNG source formats
+#       to determine if there are quality differences in conversion
+# TODO: Make duplicate display conditional - may want to show both formats
+#       in the future for comparison purposes
+def convert_images_batch(source_dir, output_dir, supported_extensions, filesystem_module):
     """
-    Convert an image using the enhanced Floyd-Steinberg dithering method.
+    Convert a batch of images from source directory to output directory.
     
-    This replaces the original simple conversion method.
+    Handles the complete workflow:
+    1. Scan source directory for images (via filesystem module)
+    2. Convert images to 6-color format with deduplication
+    3. Return list of successfully converted image paths
+    
+    Args:
+        source_dir: Path to source directory containing images
+        output_dir: Path to output directory for converted BMPs  
+        supported_extensions: Set of supported file extensions (e.g., {'.png', '.jpg', '.jpeg'})
+        filesystem_module: Reference to filesystem module for directory scanning
+        
+    Returns:
+        list: Paths to successfully converted BMP files
     """
-    return convert_image_to_6color_dithered(input_path, output_path)
+    try:
+        # Use filesystem module to scan for source images
+        source_images = filesystem_module.scan_directory(
+            source_dir, 
+            extensions=supported_extensions
+        )
+        
+        if not source_images:
+            logger.warning("No source images found in directory scanning")
+            return []
+            
+        logger.info(f"Found {len(source_images)} source images to process")
+        
+        converted_images = []
+        converted_names = set()  # Track unique output filenames to avoid duplicates
+        
+        for source_path in source_images:
+            try:
+                # Generate output filename (stem + .bmp)
+                output_filename = source_path.stem + '.bmp'
+                output_path = output_dir / output_filename
+                
+                # Skip if we've already processed this output filename
+                # This prevents duplicate display when both .jpg and .png exist
+                if output_filename in converted_names:
+                    logger.debug(f"Skipping duplicate output: {output_filename} (from {source_path.name})")
+                    continue
+                
+                # Skip if already converted and up to date (using filesystem module)
+                if filesystem_module.is_file_newer(output_path, source_path):
+                    converted_images.append(output_path)
+                    converted_names.add(output_filename)
+                    logger.debug(f"Using existing up-to-date conversion: {output_filename}")
+                    continue
+                    
+                # Convert image using dithered conversion
+                success = convert_image_to_6color_dithered(
+                    str(source_path), 
+                    str(output_path)
+                )
+                
+                if success:
+                    converted_images.append(output_path)
+                    converted_names.add(output_filename)
+                    logger.info(f"Converted {source_path.name} -> {output_filename}")
+                else:
+                    logger.error(f"Failed to convert {source_path.name}")
+                    
+            except Exception as e:
+                logger.error(f"Error converting {source_path.name}: {e}")
+        
+        logger.info(f"Successfully converted {len(converted_images)} unique images")        
+        return converted_images
+        
+    except Exception as e:
+        logger.error(f"Batch conversion failed: {e}")
+        return []
 
 
 if __name__ == "__main__":
