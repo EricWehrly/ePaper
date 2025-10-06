@@ -1,14 +1,14 @@
 """
-Display Module - ePaper Display Interface
+Display Manager Module
 
-Provides an interface for controlling the Waveshare 4inch e-Paper HAT+ (E) display.
-This module contains stubs for the main functionality to be implemented later.
+Provides the main DisplayManager class for controlling the Waveshare 4inch e-Paper HAT+ (E) display.
 """
 
 import sys
 import logging
 from pathlib import Path
-from .path_utils import setup_project_paths, get_project_root
+from ..path_utils import setup_project_paths, get_project_root
+from .orientation import get_display_width, get_display_height, get_display_orientation
 
 project_root = get_project_root()
 
@@ -20,36 +20,6 @@ except ImportError:
     PIL_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
-
-# Global display orientation configuration
-SHORT_SIDE = 400
-LONG_SIDE = 600
-_IS_PORTRAIT = True  # Default orientation
-
-
-def set_display_orientation(portrait_mode=True):
-    """Set the global display orientation for all display operations."""
-    global _IS_PORTRAIT
-    _IS_PORTRAIT = portrait_mode
-    orientation = "portrait" if _IS_PORTRAIT else "landscape"
-    width = get_display_width()
-    height = get_display_height()
-    logger.info(f"Display orientation set to: {orientation} ({width}x{height})")
-
-
-def get_display_orientation():
-    """Get the current display orientation."""
-    return _IS_PORTRAIT
-
-
-def get_display_width():
-    """Get the current display width based on orientation."""
-    return SHORT_SIDE if _IS_PORTRAIT else LONG_SIDE
-
-
-def get_display_height():
-    """Get the current display height based on orientation."""
-    return LONG_SIDE if _IS_PORTRAIT else SHORT_SIDE
 
 
 class DisplayError(Exception):
@@ -132,7 +102,6 @@ class DisplayManager:
         """
         try:
             if self.epd is None:
-                logger.info("Display clear (stubbed)")
                 return
                 
             logger.info(f"Clearing display to {color or 'white'}...")
@@ -163,7 +132,6 @@ class DisplayManager:
                 raise DisplayError(f"Image file not found: {image_path}")
                 
             if self.epd is None:
-                logger.info(f"Display image (stubbed): {image_path.name}")
                 return
                 
             if not PIL_AVAILABLE:
@@ -201,7 +169,6 @@ class DisplayManager:
         """
         try:
             if self.epd is None:
-                logger.info(f"Display text (stubbed): {text}")
                 return
                 
             if not PIL_AVAILABLE:
@@ -246,15 +213,12 @@ class DisplayManager:
             DisplayError: If sleep operation fails
         """
         try:
-            # TODO: Why bother with this logger and encapsulating if condition?
-            # Should just be a no-op when epd is none
             if self.epd is None:
-                logger.info("Display sleep (stubbed)")
                 return
                 
-            logger.info("Putting display to sleep...")
+            logger.debug("Putting display to sleep...")
             self.epd.sleep()
-            logger.info("Display is now in sleep mode")
+            logger.debug("Display is now in sleep mode")
             
         except Exception as e:
             logger.error(f"Failed to put display to sleep: {e}")
@@ -305,154 +269,8 @@ class DisplayManager:
             'orientation': orientation,
             'portrait_mode': get_display_orientation(),
             'initialized': self.epd is not None,
-            'blank_on_cleanup': self.blank_on_cleanup,
-            'colors': ['BLACK', 'WHITE', 'YELLOW', 'RED', 'BLUE', 'GREEN'],
-            'type': 'Waveshare 4inch e-Paper HAT+ (E)'
+            'blank_on_cleanup': self.blank_on_cleanup
         }
-        
-    def test_display(self):
-        """
-        Test display functionality with built-in patterns.
-        
-        Raises:
-            DisplayError: If test fails
-        """
-        try:
-            if self.epd is None:
-                logger.info("Display test (stubbed)")
-                return
-                
-            if not PIL_AVAILABLE:
-                raise DisplayError("PIL (Pillow) library not available for display test")
-            
-            import time
-            
-            logger.info("Running display test...")
-            
-            # Clear display first
-            self.clear_display()
-            time.sleep(1)
-            
-            # Create test image
-            image = Image.new('RGB', (self.width, self.height), self.epd.WHITE)
-            draw = ImageDraw.Draw(image)
-            
-            # Color test blocks (top section)
-            colors = {
-                'BLACK': self.epd.BLACK,
-                'WHITE': self.epd.WHITE,
-                'YELLOW': self.epd.YELLOW,
-                'RED': self.epd.RED,
-                'BLUE': self.epd.BLUE,
-                'GREEN': self.epd.GREEN
-            }
-            
-            block_width = self.width // 3
-            block_height = 80
-            
-            x = 0
-            y = 50
-            for i, (name, color) in enumerate(colors.items()):
-                if i > 0 and i % 3 == 0:
-                    x = 0
-                    y += block_height + 10
-                    
-                # Draw color block
-                draw.rectangle([x, y, x + block_width - 5, y + block_height], fill=color)
-                
-                # Label (in contrasting color)
-                label_color = self.epd.WHITE if color == self.epd.BLACK else self.epd.BLACK
-                try:
-                    font = ImageFont.load_default()
-                    draw.text((x + 10, y + 10), name, font=font, fill=label_color)
-                except:
-                    pass
-                    
-                x += block_width
-            
-            # Test text (bottom section)
-            try:
-                font = ImageFont.load_default()
-                test_texts = [
-                    "ePaper Display Test",
-                    f"Resolution: {self.width}x{self.height}",
-                    "6-Color Support",
-                    "Waveshare 4inch HAT+ (E)"
-                ]
-                
-                text_y = y + block_height + 50
-                for text in test_texts:
-                    draw.text((20, text_y), text, font=font, fill=self.epd.BLACK)
-                    text_y += 30
-            except:
-                pass
-            
-            # Draw simple geometric shapes
-            # Rectangle outline
-            draw.rectangle([20, text_y + 20, 180, text_y + 80], outline=self.epd.BLACK, width=2)
-            
-            # Filled circle (approximate with polygon)
-            center_x, center_y = 100, text_y + 120
-            radius = 30
-            # Simple circle approximation
-            draw.ellipse([center_x - radius, center_y - radius, 
-                         center_x + radius, center_y + radius], 
-                        fill=self.epd.BLUE, outline=self.epd.BLACK)
-            
-            # Display the test pattern
-            self.epd.display(self.epd.getbuffer(image))
-            logger.info("Display test pattern shown successfully")
-            
-        except Exception as e:
-            logger.error(f"Display test failed: {e}")
-            raise DisplayError(f"Display test failed: {e}")
-
-
-# Convenience functions for simple operations
-def quick_display_image(image_path):
-    """
-    Quickly display an image without managing DisplayManager instance.
-    
-    Args:
-        image_path: Path to image file to display
-        
-    Returns:
-        bool: True if successful
-    """
-    try:
-        display = DisplayManager()
-        display.initialize()
-        display.show_image(image_path)
-        display.cleanup()
-        return True
-        
-    except DisplayError as e:
-        logger.error(f"Quick display failed: {e}")
-        return False
-
-
-def quick_display_text(text, position=(10, 10), font_size=24):
-    """
-    Quickly display text without managing DisplayManager instance.
-    
-    Args:
-        text: Text to display
-        position: (x, y) position for text
-        font_size: Font size to use
-        
-    Returns:
-        bool: True if successful
-    """
-    try:
-        display = DisplayManager()
-        display.initialize()
-        display.show_text(text, position, font_size)
-        display.cleanup()
-        return True
-        
-    except DisplayError as e:
-        logger.error(f"Quick text display failed: {e}")
-        return False
 
 
 if __name__ == "__main__":
@@ -465,11 +283,6 @@ if __name__ == "__main__":
         
         info = display.get_display_info()
         print(f"Display info: {info}")
-        
-        display.test_display()
-        display.cleanup()
-        
-        print("Display test completed successfully (stub mode)")
         
     except DisplayError as e:
         print(f"Display test failed: {e}")
