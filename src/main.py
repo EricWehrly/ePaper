@@ -2,11 +2,18 @@
 """
 ePaper Display Main Program
 
-This program orchestrates the ePaper display workflow:
+This program orchestrates the ePaper display workflow in two modes:
+
+Standalone Mode:
 1. Scan for source images in pic-raw/
 2. Convert them to 6-color format and save to pic/
 3. Cycle through converted images on the e-paper display
 4. Handle graceful shutdown on Ctrl+C
+
+Web Server Mode:
+1. Initialize the ePaper controller
+2. Start a Flask web server for API-based control
+3. Provide REST endpoints for remote display management
 """
 
 import sys
@@ -14,6 +21,7 @@ import os
 import signal
 import logging
 import time
+import argparse
 from pathlib import Path
 
 # Setup project paths for imports
@@ -22,6 +30,7 @@ setup_project_paths()
 
 from src import convert, filesystem, display
 from src.scoring import sort_images_by_quality
+from src.web import start_server
 
 # Configure logging
 logging.basicConfig(
@@ -133,8 +142,8 @@ class ePaperController:
             except Exception as e:
                 logger.error(f"Error during display cleanup: {e}")
         
-    def run(self):
-        """Main program loop"""
+    def run_standalone(self):
+        """Run in standalone mode - convert and display images in a loop"""
         try:
             self.setup_signal_handlers()
             
@@ -160,12 +169,97 @@ class ePaperController:
             self.shutdown()
             
         return 0
+    
+    def run_web_server(self, host='0.0.0.0', port=5000, debug=False):
+        """Run in web server mode - provide API endpoints for remote control"""
+        try:
+            self.setup_signal_handlers()
+            
+            # Ensure directories exist
+            filesystem.ensure_directory(self.source_dir)
+            filesystem.ensure_directory(self.output_dir)
+            
+            # Initialize display (but don't fail if it's not available)
+            display_initialized = self.initialize_display()
+            if not display_initialized:
+                logger.warning("Display initialization failed - web server will run with limited functionality")
+            
+            # Start web server (this will block until shutdown)
+            start_server(
+                epaper_controller=self,
+                host=host,
+                port=port,
+                debug=debug
+            )
+                
+        except Exception as e:
+            logger.error(f"Web server error: {e}")
+            return 1
+            
+        finally:
+            self.shutdown()
+            
+        return 0
 
 
 def main():
     """Entry point"""
+    parser = argparse.ArgumentParser(description='ePaper Display Controller')
+    parser.add_argument(
+        '--mode', 
+        choices=['standalone', 'web'], 
+        default='web',
+        help='Run mode: standalone (direct display cycle) or web (API server) - default: web'
+    )
+    parser.add_argument(
+        '--host', 
+        default='0.0.0.0',
+        help='Host address for web server (web mode only) - default: 0.0.0.0'
+    )
+    parser.add_argument(
+        '--port', 
+        type=int, 
+        default=5000,
+        help='Port for web server (web mode only) - default: 5000'
+    )
+    parser.add_argument(
+        '--debug', 
+        action='store_true',
+        help='Enable debug mode for web server (web mode only)'
+    )
+    parser.add_argument(
+        '--portrait', 
+        action='store_true', 
+        default=True,
+        help='Use portrait orientation (400x600) - default: True'
+    )
+    parser.add_argument(
+        '--landscape', 
+        action='store_true',
+        help='Use landscape orientation (600x400)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Create controller
     controller = ePaperController()
-    exit_code = controller.run()
+    
+    # Set orientation
+    portrait_mode = not args.landscape  # Default to portrait unless --landscape is specified
+    controller.set_orientation(portrait_mode)
+    
+    # Run in specified mode
+    if args.mode == 'standalone':
+        logger.info("Starting in standalone mode")
+        exit_code = controller.run_standalone()
+    else:  # web mode
+        logger.info(f"Starting web server on {args.host}:{args.port}")
+        exit_code = controller.run_web_server(
+            host=args.host,
+            port=args.port,
+            debug=args.debug
+        )
+    
     sys.exit(exit_code)
 
 
