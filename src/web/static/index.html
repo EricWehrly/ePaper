@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ePaper Display</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>ePaper Display</h1>
+    <div class="panel">
+      <div class="display-box" id="displayBox">
+        <div class="placeholder" id="placeholder">No image currently displayed</div>
+        <img id="currentImage" src="" alt="Current display" style="display:none;"/>
+      </div>
+      <div class="thumbs" id="thumbs">
+        <h2>Available Images</h2>
+        <div class="thumb-list" id="thumbList"></div>
+      </div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

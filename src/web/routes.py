@@ -28,7 +28,8 @@ def register_routes(app):
                 "display_initialized": controller.display_manager is not None,
                 "source_dir": str(controller.source_dir),
                 "output_dir": str(controller.output_dir),
-                "display_interval": controller.display_interval
+                "display_interval": controller.display_interval,
+                "current_image": controller.current_image
             })
         except Exception as e:
             logger.error(f"Status check failed: {e}")
@@ -88,7 +89,8 @@ def register_routes(app):
             if not image_path.exists():
                 return jsonify({"error": "Image file not found"}), 404
                 
-            controller.display_manager.show_image(str(image_path))
+            # Use controller helper so current_image is tracked
+            controller.show_image(str(image_path))
             return jsonify({"success": True, "displayed_image": str(image_path)})
             
         except Exception as e:
