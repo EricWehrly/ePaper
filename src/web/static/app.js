@@ -78,16 +78,16 @@ async function refresh() {
 window.addEventListener('load', () => {
   refresh();
   setInterval(refresh, 5000);
-  document.getElementById('blankBtn').addEventListener('click', async () => {
+  document.getElementById('clearBtn').addEventListener('click', async () => {
     const overlay = document.getElementById('previewOverlay');
     const statusEl = document.getElementById('previewStatus');
     overlay.style.display = '';
-    statusEl.textContent = 'Blanking display...';
+    statusEl.textContent = 'Clearing display...';
     try {
       const r = await fetch('/api/display/clear', {method:'POST'});
       if (!r.ok) throw new Error('clear failed');
     } catch (e) {
-      alert('Failed to blank display');
+      alert('Failed to clear display');
     } finally {
       overlay.style.display = 'none';
       statusEl.textContent = '';
