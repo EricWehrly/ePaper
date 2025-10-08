@@ -12,75 +12,10 @@ function el(tag, attrs={}, ...children) {
 }
 
 let state = {
-  mode: 'image', // 'image' | 'carousel'
-  images: [],
   convertedImages: [],
-  currentIndex: -1,
-  autoplay: false,
-  intervalSec: 30,
-  timer: null,
-  orientation: 'portrait'
+  settings: {},
+  busy: false
 };
-
-function enableNav(enabled) {
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  const autoplayToggle = document.getElementById('autoplayToggle');
-  [prevBtn, nextBtn, autoplayToggle].forEach(b => b.disabled = !enabled);
-  autoplayToggle.disabled = state.mode !== 'carousel';
-}
-
-function setMode(mode) {
-  if (state.mode === mode) return;
-  state.mode = mode;
-  document.getElementById('modeImageBtn').setAttribute('aria-pressed', mode==='image');
-  document.getElementById('modeCarouselBtn').setAttribute('aria-pressed', mode==='carousel');
-  if (mode === 'image') {
-    stopAutoplay();
-    enableNav(false);
-  } else {
-    enableNav(true);
-  }
-}
-
-function showByIndex(idx) {
-  if (!state.convertedImages.length) return;
-  if (idx < 0) idx = state.convertedImages.length - 1;
-  if (idx >= state.convertedImages.length) idx = 0;
-  state.currentIndex = idx;
-  const item = state.convertedImages[idx];
-  // Reuse same logic used on thumb click
-  displayImage(item.path, false);
-}
-
-function nextImage() { showByIndex(state.currentIndex + 1); }
-function prevImage() { showByIndex(state.currentIndex - 1); }
-
-function startAutoplay() {
-  if (state.autoplay) return;
-  state.autoplay = true;
-  const btn = document.getElementById('autoplayToggle');
-  btn.textContent = 'Autoplay: On';
-  btn.dataset.playing = 'true';
-  scheduleNext();
-}
-
-function stopAutoplay() {
-  state.autoplay = false;
-  const btn = document.getElementById('autoplayToggle');
-  btn.textContent = 'Autoplay: Off';
-  btn.dataset.playing = 'false';
-  if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-}
-
-function scheduleNext() {
-  if (!state.autoplay) return;
-  if (state.timer) clearTimeout(state.timer);
-  state.timer = setTimeout(() => {
-    nextImage();
-    scheduleNext();
-  }, state.intervalSec * 1000);
-}
 
 async function displayImage(path, showOverlay=true) {
   const overlay = document.getElementById('previewOverlay');
@@ -128,12 +63,9 @@ async function refresh() {
     // Only show converted images for now
     const all = images.converted_images || [];
     state.convertedImages = all;
-    // Update current index if we have a known current image
-    if (status.current_image) {
-      const idx = all.findIndex(i => i.path === status.current_image);
-      if (idx !== -1) state.currentIndex = idx; else state.currentIndex = -1;
-    }
-    enableNav(state.mode === 'carousel' && all.length>0);
+    state.settings = status.settings || state.settings;
+    state.busy = status.busy;
+    updateControlsFromStatus(status);
     all.forEach((item, idx) => {
       const thumb = el('div', {class:'thumb'});
       const img = el('img', {src:'/static_image?path=' + encodeURIComponent(item.path)});
@@ -154,7 +86,6 @@ async function refresh() {
 
         try {
           await displayImage(item.path, false);
-          state.currentIndex = idx;
         } catch (e) {
           alert('Failed to display image');
         } finally {
@@ -172,9 +103,32 @@ async function refresh() {
   }
 }
 
+function updateControlsFromStatus(status) {
+  const mode = (status.settings && status.settings.mode) || 'image';
+  const autoplay = !!(status.settings && status.settings.autoplay);
+  const intervalSec = (status.settings && status.settings.interval_sec) || 30;
+  const orientation = (status.settings && status.settings.orientation) || 'portrait';
+  document.getElementById('modeImageBtn').setAttribute('aria-pressed', mode==='image');
+  document.getElementById('modeCarouselBtn').setAttribute('aria-pressed', mode==='carousel');
+  const autoplayBtn = document.getElementById('autoplayToggle');
+  autoplayBtn.textContent = 'Autoplay: ' + (autoplay ? 'On':'Off');
+  autoplayBtn.dataset.playing = autoplay ? 'true':'false';
+  document.getElementById('intervalInput').value = intervalSec;
+  document.getElementById('orientationSelect').value = orientation;
+  // Enable/disable navigation based on mode & images
+  const navEnabled = mode === 'carousel' && state.convertedImages.length>0;
+  ['prevBtn','nextBtn','autoplayToggle'].forEach(id => {
+    const elRef = document.getElementById(id);
+    elRef.disabled = !navEnabled;
+  });
+  // Busy state styling
+  const displayBox = document.getElementById('displayBox');
+  if (status.busy) displayBox.classList.add('display-busy'); else displayBox.classList.remove('display-busy');
+}
+
 window.addEventListener('load', () => {
   refresh();
-  setInterval(() => { if (!state.autoplay) refresh(); }, 5000);
+  setInterval(refresh, 5000);
 
   document.getElementById('clearBtn').addEventListener('click', async () => {
     const overlay = document.getElementById('previewOverlay');
@@ -194,46 +148,45 @@ window.addEventListener('load', () => {
   });
 
   // Mode buttons
-  document.getElementById('modeImageBtn').addEventListener('click', () => {
-    setMode('image');
+  document.getElementById('modeImageBtn').addEventListener('click', async () => {
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode:'image'})});
+    refresh();
   });
-  document.getElementById('modeCarouselBtn').addEventListener('click', () => {
-    setMode('carousel');
-    if (state.currentIndex === -1 && state.convertedImages.length) {
-      showByIndex(0);
-    }
+  document.getElementById('modeCarouselBtn').addEventListener('click', async () => {
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode:'carousel'})});
+    refresh();
   });
 
   // Navigation
-  document.getElementById('nextBtn').addEventListener('click', () => nextImage());
-  document.getElementById('prevBtn').addEventListener('click', () => prevImage());
+  document.getElementById('nextBtn').addEventListener('click', async () => {
+    await fetch('/api/display/next', {method:'POST'});
+    setTimeout(refresh, 300);
+  });
+  document.getElementById('prevBtn').addEventListener('click', async () => {
+    await fetch('/api/display/prev', {method:'POST'});
+    setTimeout(refresh, 300);
+  });
 
   // Autoplay
-  document.getElementById('autoplayToggle').addEventListener('click', () => {
-    if (state.autoplay) {
-      stopAutoplay();
-    } else {
-      startAutoplay();
-    }
+  document.getElementById('autoplayToggle').addEventListener('click', async () => {
+    const playing = document.getElementById('autoplayToggle').dataset.playing === 'true';
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({autoplay: !playing})});
+    setTimeout(refresh, 300);
   });
 
   // Interval change
-  document.getElementById('intervalInput').addEventListener('change', (e) => {
+  document.getElementById('intervalInput').addEventListener('change', async (e) => {
     const v = parseInt(e.target.value, 10);
     if (!isNaN(v) && v >= 5) {
-      state.intervalSec = v;
-      if (state.autoplay) scheduleNext();
+      await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({interval_sec: v})});
+      setTimeout(refresh, 200);
     }
   });
 
   // Orientation (stub - requires backend endpoint to actually change display orientation)
   document.getElementById('orientationSelect').addEventListener('change', async (e) => {
-    state.orientation = e.target.value;
-    try {
-      // Attempt call (may 404 until implemented server-side)
-      await fetch('/api/display/orientation', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({orientation: state.orientation})});
-    } catch (err) {
-      console.warn('Orientation endpoint not implemented yet.');
-    }
+    const orientation = e.target.value;
+    await fetch('/api/display/orientation', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({orientation})});
+    setTimeout(refresh, 500);
   });
 });

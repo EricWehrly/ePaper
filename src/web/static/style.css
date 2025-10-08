@@ -101,6 +101,29 @@ h1 {
 	color: #fff;
 }
 
+/* Generic control classification marker classes (no base styles applied) */
+
+/* Container state when display is busy */
+.display-box.display-busy .busy-sensitive,
+.display-box.display-busy .busy-sensitive:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.display-box.display-busy .busy-sensitive {
+	pointer-events: none;
+}
+
+/* Differentiate setting vs immediate control (optional subtle styling) */
+.display-setting {
+	border-style: dashed;
+}
+
+.display-box.display-busy .preview-status::after {
+	content: ' (busy)';
+	color: #c62828;
+}
+
 .mode-group, .nav-group, .orient-group, .interval-group, .actions-group {
 	display: flex;
 	align-items: center;

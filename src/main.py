@@ -23,6 +23,8 @@ import logging
 import time
 import argparse
 from pathlib import Path
+import json
+import threading
 
 # Setup project paths for imports
 from src.path_utils import setup_project_paths, get_project_root
@@ -49,14 +51,31 @@ class ePaperController:
         self.current_image = None
         # Container to hold server instance when running web server
         self._server_container = None
-        
-        # Display orientation - set via display module
-        # Portrait: 400x600 (tall), Landscape: 600x400 (wide)  
-        # Default to portrait mode (can be changed via set_orientation)
-        display.set_display_orientation(portrait_mode=True)
-        
-        # Directory paths
+        # Busy flag & lock for display operations
+        self._busy_lock = threading.RLock()
+        self._busy = False
+        # Carousel thread control
+        self._carousel_thread = None
+        self._carousel_stop_event = threading.Event()
+        # Settings persistence path
         project_root = get_project_root()
+        self.config_dir = project_root / 'config'
+        self.config_dir.mkdir(exist_ok=True)
+        self.settings_path = self.config_dir / 'settings.json'
+        # Default runtime settings (will be overridden by persisted ones if available)
+        self.settings = {
+            'mode': 'image',           # 'image' or 'carousel'
+            'autoplay': False,         # server-driven carousel active
+            'interval_sec': 30,        # seconds between images in carousel
+            'orientation': 'portrait'  # 'portrait' | 'landscape'
+        }
+        # Load any persisted settings
+        self._load_settings()
+        
+        # Display orientation - initialize based on settings
+        display.set_display_orientation(portrait_mode=self.settings.get('orientation','portrait') == 'portrait')
+
+        # Directory paths
         self.source_dir = project_root / 'pic-raw'
         self.output_dir = project_root / 'pic'
         
@@ -65,7 +84,34 @@ class ePaperController:
         
         # Display timing
         # TODO: 22 in "release" build, 2 in "demo / test" mode ...
-        self.display_interval = 2.0  # seconds between images
+        self.display_interval = 2.0  # seconds between images (standalone cycle)
+
+    # ---------------- Settings Persistence ----------------
+    def _load_settings(self):
+        try:
+            if self.settings_path.exists():
+                with open(self.settings_path, 'r') as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    self.settings.update({k: v for k,v in data.items() if k in self.settings})
+        except Exception as e:
+            logger.warning(f"Failed to load settings: {e}")
+
+    def _save_settings(self):
+        try:
+            with open(self.settings_path, 'w') as f:
+                json.dump(self.settings, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save settings: {e}")
+
+    # ---------------- Busy State Helpers ----------------
+    def is_busy(self):
+        return self._busy
+
+    def _set_busy(self, value: bool):
+        self._busy = value
+
+    # ---------------- Orientation ----------------
     
     def set_orientation(self, portrait_mode):
         """
@@ -75,6 +121,9 @@ class ePaperController:
             portrait_mode: True for portrait (400x600), False for landscape (600x400)
         """
         display.set_display_orientation(portrait_mode)
+        self.settings['orientation'] = 'portrait' if portrait_mode else 'landscape'
+        self._save_settings()
+        # TODO: (Deferred) trigger reconversion of images when orientation changes
         
     def setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
@@ -174,10 +223,101 @@ class ePaperController:
         """
         if not self.display_manager:
             raise RuntimeError("Display manager not initialized")
+        with self._busy_lock:
+            self._set_busy(True)
+            try:
+                self.display_manager.show_image(image_path)
+                self.current_image = image_path
+            finally:
+                self._set_busy(False)
 
-        self.display_manager.show_image(image_path)
-        # Store the path (string) for status reporting
-        self.current_image = image_path
+    # ---------------- Carousel Control ----------------
+    def start_carousel(self):
+        """Start server-driven carousel if not already running."""
+        if self._carousel_thread and self._carousel_thread.is_alive():
+            return
+        self._carousel_stop_event.clear()
+        self.settings['autoplay'] = True
+        self.settings['mode'] = 'carousel'
+        self._save_settings()
+        self._carousel_thread = threading.Thread(target=self._carousel_loop, daemon=True)
+        self._carousel_thread.start()
+
+    def stop_carousel(self):
+        if self._carousel_thread and self._carousel_thread.is_alive():
+            self._carousel_stop_event.set()
+            self._carousel_thread.join(timeout=2)
+        self.settings['autoplay'] = False
+        self.settings['mode'] = 'image'
+        self._save_settings()
+
+    def _carousel_loop(self):
+        while not self._carousel_stop_event.is_set() and self.running:
+            try:
+                images = list(self.output_dir.glob('*.bmp'))
+                if not images:
+                    time.sleep(2)
+                    continue
+                # If current image not in list, reset index
+                if not self.current_image or Path(self.current_image) not in images:
+                    idx = 0
+                else:
+                    try:
+                        idx = (images.index(Path(self.current_image)) + 1) % len(images)
+                    except ValueError:
+                        idx = 0
+                self.show_image(str(images[idx]))
+                # Wait for interval or stop
+                interval = max(5, int(self.settings.get('interval_sec', 30)))
+                for _ in range(interval * 10):  # 0.1s ticks
+                    if self._carousel_stop_event.is_set() or not self.running:
+                        break
+                    time.sleep(0.1)
+            except Exception as e:
+                logger.error(f"Carousel loop error: {e}")
+                time.sleep(2)
+
+    def set_interval(self, interval_sec: int):
+        self.settings['interval_sec'] = max(5, int(interval_sec))
+        self._save_settings()
+
+    def set_mode(self, mode: str):
+        if mode not in ('image','carousel'):
+            return
+        self.settings['mode'] = mode
+        if mode == 'carousel':
+            self.start_carousel()
+        else:
+            self.stop_carousel()
+        self._save_settings()
+
+    def next_image(self):
+        images = list(self.output_dir.glob('*.bmp'))
+        if not images:
+            return None
+        if not self.current_image or Path(self.current_image) not in images:
+            idx = 0
+        else:
+            try:
+                idx = (images.index(Path(self.current_image)) + 1) % len(images)
+            except ValueError:
+                idx = 0
+        self.show_image(str(images[idx]))
+        return self.current_image
+
+    def prev_image(self):
+        images = list(self.output_dir.glob('*.bmp'))
+        if not images:
+            return None
+        if not self.current_image or Path(self.current_image) not in images:
+            idx = 0
+        else:
+            try:
+                idx = (images.index(Path(self.current_image)) - 1) % len(images)
+            except ValueError:
+                idx = 0
+        self.show_image(str(images[idx]))
+        return self.current_image
         
     def run_standalone(self):
         """Run in standalone mode - convert and display images in a loop"""

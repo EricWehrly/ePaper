@@ -29,7 +29,9 @@ def register_routes(app):
                 "source_dir": str(controller.source_dir),
                 "output_dir": str(controller.output_dir),
                 "display_interval": controller.display_interval,
-                "current_image": controller.current_image
+                "current_image": controller.current_image,
+                "busy": controller.is_busy(),
+                "settings": controller.settings
             })
         except Exception as e:
             logger.error(f"Status check failed: {e}")
@@ -228,4 +230,66 @@ def register_routes(app):
             return jsonify({"success": True, "orientation": orientation})
         except Exception as e:
             logger.error(f"Set orientation failed: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    # ------------- Settings Endpoints -------------
+    @app.route('/api/settings', methods=['GET','POST'])
+    def settings_handler():
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({"error": "Controller not initialized"}), 500
+            if request.method == 'GET':
+                return jsonify(controller.settings)
+            data = request.get_json(force=True, silent=True) or {}
+            # Update interval
+            if 'interval_sec' in data:
+                try:
+                    controller.set_interval(int(data['interval_sec']))
+                except Exception as e:
+                    return jsonify({"error": f"invalid interval: {e}"}), 400
+            # Update mode / autoplay
+            if 'mode' in data:
+                controller.set_mode(data['mode'])
+            if 'autoplay' in data:
+                if data['autoplay']:
+                    controller.start_carousel()
+                else:
+                    controller.stop_carousel()
+            return jsonify({"success": True, "settings": controller.settings})
+        except Exception as e:
+            logger.error(f"Settings update failed: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    # ------------- Navigation Endpoints -------------
+    @app.route('/api/display/next', methods=['POST'])
+    def api_next_image():
+        try:
+            controller = current_app.epaper_controller
+            if not controller or not controller.display_manager:
+                return jsonify({"error": "Display not initialized"}), 500
+            if controller.is_busy():
+                return jsonify({"error": "Display busy"}), 409
+            img = controller.next_image()
+            if not img:
+                return jsonify({"error": "No images"}), 400
+            return jsonify({"success": True, "current_image": img})
+        except Exception as e:
+            logger.error(f"Next image failed: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/display/prev', methods=['POST'])
+    def api_prev_image():
+        try:
+            controller = current_app.epaper_controller
+            if not controller or not controller.display_manager:
+                return jsonify({"error": "Display not initialized"}), 500
+            if controller.is_busy():
+                return jsonify({"error": "Display busy"}), 409
+            img = controller.prev_image()
+            if not img:
+                return jsonify({"error": "No images"}), 400
+            return jsonify({"success": True, "current_image": img})
+        except Exception as e:
+            logger.error(f"Prev image failed: {e}")
             return jsonify({"error": str(e)}), 500
