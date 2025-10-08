@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Monica's Memories</title>
+  <title>ePaper</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <div class="container">
-    <h1>Monica's Memories</h1>
+    <h1>ePaper</h1>
     <div class="panel">
       <div class="display-box" id="displayBox">
         <div class="placeholder" id="placeholder">No image currently displayed</div>
@@ -17,11 +17,39 @@
           <div class="spinner" id="spinner"></div>
         </div>
         <div class="preview-status" id="previewStatus" aria-live="polite"></div>
+        <div class="controls primary-controls" id="primaryControls">
+          <div class="mode-group">
+            <label>Mode:</label>
+            <button class="ctl-btn" data-mode="image" id="modeImageBtn" aria-pressed="true">Image</button>
+            <button class="ctl-btn" data-mode="carousel" id="modeCarouselBtn" aria-pressed="false">Carousel</button>
+          </div>
+          <div class="nav-group" id="navGroup">
+            <button class="ctl-btn" id="prevBtn" title="Previous image" disabled>&lt;</button>
+            <button class="ctl-btn" id="nextBtn" title="Next image" disabled>&gt;</button>
+            <button class="ctl-btn" id="autoplayToggle" data-playing="false" disabled>Autoplay: Off</button>
+          </div>
+        </div>
+        <div class="controls secondary-controls" id="secondaryControls">
+          <div class="orient-group">
+            <label for="orientationSelect">Orientation:</label>
+            <select id="orientationSelect">
+              <option value="portrait" selected>Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </div>
+          <div class="interval-group">
+            <label for="intervalInput">Interval (s):</label>
+            <input id="intervalInput" type="number" min="5" step="1" value="30" />
+          </div>
+          <div class="actions-group">
+            <button id="clearBtn" class="ctl-btn danger" title="Clear ePaper display">Clear</button>
+          </div>
+        </div>
       </div>
       <div class="thumbs" id="thumbs">
         <div class="thumbs-header">
           <h2>Available Images</h2>
-          <button id="clearBtn" class="button">Clear Screen</button>
+          <!-- Clear button moved to secondary controls -->
         </div>
         <div class="thumb-list" id="thumbList"></div>
       </div>

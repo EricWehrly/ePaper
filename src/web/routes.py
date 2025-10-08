@@ -199,3 +199,33 @@ def register_routes(app):
         except Exception as e:
             logger.error(f"Clear display failed: {e}")
             return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/display/orientation', methods=['POST'])
+    def set_orientation():
+        """Set display orientation (portrait or landscape)"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({"error": "Controller not initialized"}), 500
+
+            data = request.get_json(force=True, silent=True) or {}
+            orientation = data.get('orientation')
+            if orientation not in ('portrait', 'landscape'):
+                return jsonify({"error": "orientation must be 'portrait' or 'landscape'"}), 400
+
+            portrait_mode = orientation == 'portrait'
+            # Update orientation via controller helper
+            controller.set_orientation(portrait_mode)
+            # Reinitialize display if already initialized (optional)
+            try:
+                if controller.display_manager:
+                    # Cleanup and re-init to apply new dimensions if required
+                    controller.display_manager.cleanup()
+                    controller.initialize_display()
+            except Exception as e:
+                logger.warning(f"Reinitializing display after orientation change failed: {e}")
+
+            return jsonify({"success": True, "orientation": orientation})
+        except Exception as e:
+            logger.error(f"Set orientation failed: {e}")
+            return jsonify({"error": str(e)}), 500

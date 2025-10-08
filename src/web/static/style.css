@@ -41,6 +41,81 @@ h1 {
 	max-height: 100%;
 }
 
+/* Controls overlay area inside display box */
+.controls {
+	position: absolute;
+	left: 8px;
+	right: 8px;
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.primary-controls {
+	top: 8px;
+	justify-content: space-between;
+}
+
+.secondary-controls {
+	bottom: 8px;
+	justify-content: space-between;
+}
+
+.controls label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: .5px;
+	color: #333;
+	margin-right: 4px;
+}
+
+.ctl-btn {
+	border: 1px solid #007bff;
+	background: #fff;
+	color: #007bff;
+	padding: 4px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+.ctl-btn[aria-pressed="true"], .ctl-btn.active {
+	background: #007bff;
+	color: #fff;
+}
+
+.ctl-btn:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.ctl-btn.danger {
+	border-color: #c62828;
+	color: #c62828;
+}
+
+.ctl-btn.danger:hover:not(:disabled) {
+	background: #c62828;
+	color: #fff;
+}
+
+.mode-group, .nav-group, .orient-group, .interval-group, .actions-group {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+#intervalInput {
+	width: 72px;
+	padding: 3px 4px;
+}
+
+#orientationSelect {
+	padding: 3px 4px;
+}
+
 .placeholder {
 	color: #888;
 	text-align: center
