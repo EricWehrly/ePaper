@@ -163,3 +163,39 @@ def register_routes(app):
         except Exception as e:
             logger.error(f"Controller stop failed: {e}")
             return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/display/blank', methods=['POST'])
+    def blank_display():
+        """Blank the e-paper display to white"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({"error": "Controller not initialized"}), 500
+
+            if not controller.display_manager:
+                return jsonify({"error": "Display not initialized"}), 500
+
+            controller.display_manager.clear_display()
+            return jsonify({"success": True})
+
+        except Exception as e:
+            logger.error(f"Blank display failed: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/display/clear', methods=['POST'])
+    def clear_display_route():
+        """Clear the e-paper display to white (alias of blank)"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({"error": "Controller not initialized"}), 500
+
+            if not controller.display_manager:
+                return jsonify({"error": "Display not initialized"}), 500
+
+            controller.display_manager.clear_display()
+            return jsonify({"success": True})
+
+        except Exception as e:
+            logger.error(f"Clear display failed: {e}")
+            return jsonify({"error": str(e)}), 500

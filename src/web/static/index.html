@@ -3,19 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ePaper Display</title>
+  <title>Monica's Memories</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <div class="container">
-    <h1>ePaper Display</h1>
+    <h1>Monica's Memories</h1>
     <div class="panel">
       <div class="display-box" id="displayBox">
         <div class="placeholder" id="placeholder">No image currently displayed</div>
         <img id="currentImage" src="" alt="Current display" style="display:none;"/>
+        <div class="preview-overlay" id="previewOverlay" style="display:none;">
+          <div class="spinner" id="spinner"></div>
+        </div>
+        <div class="preview-status" id="previewStatus" aria-live="polite"></div>
       </div>
       <div class="thumbs" id="thumbs">
-        <h2>Available Images</h2>
+        <div class="thumbs-header">
+          <h2>Available Images</h2>
+          <button id="blankBtn" class="button">Blank Screen</button>
+        </div>
         <div class="thumb-list" id="thumbList"></div>
       </div>
     </div>

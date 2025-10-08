@@ -32,7 +32,8 @@ async function refresh() {
     const images = await fetchJson('/api/images');
     const list = document.getElementById('thumbList');
     list.innerHTML = '';
-    const all = [...images.converted_images, ...images.source_images];
+    // Only show converted images for now
+    const all = images.converted_images || [];
     all.forEach(item => {
       const thumb = el('div', {class:'thumb'});
       const img = el('img', {src:'/static_image?path=' + encodeURIComponent(item.path)});
@@ -42,10 +43,30 @@ async function refresh() {
       thumb.appendChild(img);
       thumb.appendChild(text);
       thumb.addEventListener('click', async () => {
+        if (thumb.classList.contains('disabled')) return;
+        // Disable all thumbs while updating
+        document.querySelectorAll('.thumb').forEach(t => t.classList.add('disabled'));
+        // Show spinner overlay and status
+        const overlay = document.getElementById('previewOverlay');
+        const statusEl = document.getElementById('previewStatus');
+        overlay.style.display = '';
+        statusEl.textContent = 'Applying image...';
+
         try {
-          await fetch('/api/display/image', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image_path: item.path})});
+          const res = await fetch('/api/display/image', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image_path: item.path})});
+          if (!res.ok) throw new Error('display failed');
+          // Optionally get any returned status
+          const body = await res.json().catch(()=>null);
+          if (body && body.status) statusEl.textContent = body.status;
+        } catch (e) {
+          alert('Failed to display image');
+        } finally {
+          // Re-enable inputs and hide overlay
+          document.querySelectorAll('.thumb').forEach(t => t.classList.remove('disabled'));
+          overlay.style.display = 'none';
+          statusEl.textContent = '';
           setTimeout(refresh, 500);
-        } catch (e) { alert('Failed to display image'); }
+        }
       });
       list.appendChild(thumb);
     });
@@ -57,4 +78,20 @@ async function refresh() {
 window.addEventListener('load', () => {
   refresh();
   setInterval(refresh, 5000);
+  document.getElementById('blankBtn').addEventListener('click', async () => {
+    const overlay = document.getElementById('previewOverlay');
+    const statusEl = document.getElementById('previewStatus');
+    overlay.style.display = '';
+    statusEl.textContent = 'Blanking display...';
+    try {
+      const r = await fetch('/api/display/clear', {method:'POST'});
+      if (!r.ok) throw new Error('clear failed');
+    } catch (e) {
+      alert('Failed to blank display');
+    } finally {
+      overlay.style.display = 'none';
+      statusEl.textContent = '';
+      setTimeout(refresh, 300);
+    }
+  });
 });
