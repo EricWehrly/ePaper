@@ -271,16 +271,17 @@ class ePaperController:
         """Show an image on the display and update current_image state.
 
         This centralizes tracking so the web UI can report the active image.
+        Sets current_image to the incoming image before display begins.
         """
         if not self.display_manager:
             raise RuntimeError("Display manager not initialized")
         with self._busy_lock:
             self._set_busy(True)
+            # Update current_image to incoming image BEFORE display starts
+            self.current_image = image_path
+            self._save_state()
             try:
                 self.display_manager.show_image(image_path)
-                self.current_image = image_path
-                # Persist state change immediately
-                self._save_state()
             finally:
                 self._set_busy(False)
 
@@ -336,17 +337,17 @@ class ePaperController:
                         except ValueError:
                             idx = 0
                     
-                    # Set busy state before image change and keep it longer for UI visibility
+                    # Set busy state and update current_image to incoming image BEFORE display starts
                     with self._busy_lock:
                         self._set_busy(True)
+                        # Update current_image to incoming image before display begins
+                        self.current_image = str(images[idx])
+                        self._save_state()
                         try:
                             # Show the image (this calls display manager)
                             if not self.display_manager:
                                 raise RuntimeError("Display manager not initialized")
                             self.display_manager.show_image(str(images[idx]))
-                            self.current_image = str(images[idx])
-                            # Persist state change during carousel
-                            self._save_state()
                             
                             # Keep busy state for a bit longer to ensure UI sees it
                             time.sleep(0.5)  # Half second for UI to catch the busy state
