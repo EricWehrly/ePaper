@@ -4,7 +4,7 @@
 
 body {
 	font-family: Arial, sans-serif;
-	background: #f2f0eb;
+	background: #f5f3ed;
 	margin: 0;
 	padding: 20px;
 	color: #2c3e50
@@ -94,6 +94,23 @@ h1 {
 	font-size: 1rem;
 	color: #374151;
 	font-weight: 600;
+}
+
+.countdown-display {
+	font-family: 'Courier New', monospace;
+	font-weight: bold;
+	color: #1e3a8a;
+	background: #f8fafc;
+	padding: 4px 8px;
+	border-radius: 4px;
+	border: 1px solid #d1d5db;
+	min-width: 40px;
+	text-align: center;
+}
+
+.countdown-display.disabled {
+	color: #9ca3af;
+	background: #f9fafb;
 }
 
 .ctl-btn {
@@ -265,6 +282,25 @@ h1 {
 	box-shadow: 0 2px 8px rgba(0,0,0,0.1)
 }
 
+/* Custom scrollbar for thumbnails */
+.thumbs::-webkit-scrollbar {
+	width: 8px;
+}
+
+.thumbs::-webkit-scrollbar-track {
+	background: #f5f3ed;
+	border-radius: 4px;
+}
+
+.thumbs::-webkit-scrollbar-thumb {
+	background: #d4cfca;
+	border-radius: 4px;
+}
+
+.thumbs::-webkit-scrollbar-thumb:hover {
+	background: #c7c2bb;
+}
+
 .thumb-list {
 	display: grid;
 	grid-template-columns: 1fr;
@@ -286,6 +322,7 @@ h1 {
 .thumb img {
 	width: 100%;
 	max-width: 280px;
+	max-height: 280px;
 	height: auto;
 	object-fit: contain;
 	border: 1px solid #d1d5db;

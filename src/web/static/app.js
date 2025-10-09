@@ -15,7 +15,9 @@ let state = {
   convertedImages: [],
   settings: {},
   busy: false,
-  carouselActive: false
+  carouselActive: false,
+  lastImageChange: null,
+  countdownInterval: null
 };
 
 function setBusyState(busy, incomingImagePath = null, statusText = '') {
@@ -152,12 +154,38 @@ async function refreshImages() {
   }
 }
 
+function updateCountdown() {
+  const countdownEl = document.getElementById('nextImageCountdown');
+  const isCarouselMode = state.settings.mode === 'carousel';
+  const carouselActive = state.carouselActive;
+  
+  if (!isCarouselMode || !carouselActive || !state.lastImageChange) {
+    countdownEl.textContent = '--';
+    countdownEl.classList.add('disabled');
+    return;
+  }
+  
+  countdownEl.classList.remove('disabled');
+  const intervalMs = (state.settings.interval_sec || 30) * 1000;
+  const elapsed = Date.now() - state.lastImageChange;
+  const remaining = Math.max(0, intervalMs - elapsed);
+  const secondsLeft = Math.ceil(remaining / 1000);
+  
+  countdownEl.textContent = secondsLeft + 's';
+}
+
 function updateControlsFromStatus(status, previousBusyState) {
   const mode = (status.settings && status.settings.mode) || 'image';
   const autoplay = !!(status.settings && status.settings.autoplay);
   const intervalSec = (status.settings && status.settings.interval_sec) || 30;
   const orientation = (status.settings && status.settings.orientation) || 'portrait';
   const carouselActive = status.carousel_active || false;
+  
+  // Update last image change time if current image changed
+  if (status.current_image && status.current_image !== state.lastCurrentImage) {
+    state.lastImageChange = Date.now();
+    state.lastCurrentImage = status.current_image;
+  }
   
   // Update UI controls to reflect current settings
   document.getElementById('modeImageBtn').setAttribute('aria-pressed', mode==='image');
@@ -204,6 +232,9 @@ function updateControlsFromStatus(status, previousBusyState) {
       setBusyState(false);
     }
   }
+  
+  // Update countdown display
+  updateCountdown();
 }
 
 let refreshTimer = null;
@@ -226,6 +257,13 @@ window.addEventListener('load', () => {
     // Then start regular status polling  
     refresh().then(() => scheduleNextRefresh());
   });
+  
+  // Start countdown update timer (every second when carousel is active)
+  state.countdownInterval = setInterval(() => {
+    if (state.carouselActive) {
+      updateCountdown();
+    }
+  }, 1000);
 
   document.getElementById('clearBtn').addEventListener('click', () => {
     clearDisplay();
