@@ -26,7 +26,7 @@ function setBusyState(busy, incomingImagePath = null, statusText = '') {
   
   if (busy) {
     displayBox.classList.add('display-busy');
-    overlay.style.display = '';
+    overlay.style.display = 'block';
     statusEl.textContent = statusText;
     
     // Show incoming image if provided
@@ -198,17 +198,20 @@ function updateControlsFromStatus(status) {
     if (!status.busy) autoplayToggle.disabled = false;
   }
   
-  // Handle busy state or carousel cycling state
-  const shouldShowBusy = status.busy || (carouselActive && status.busy);
-  const statusText = carouselActive && status.busy ? 'Carousel cycling...' : '';
+  // Handle busy state from server
+  const shouldShowBusy = status.busy;
+  const statusText = carouselActive && status.busy ? 'Carousel cycling...' : 
+                     status.busy ? 'Display busy...' : '';
   
   if (shouldShowBusy !== state.busy) {
     state.busy = shouldShowBusy;
     // Show current image with overlay when carousel is cycling
     if (carouselActive && status.busy && status.current_image) {
       setBusyState(shouldShowBusy, status.current_image, statusText);
-    } else {
+    } else if (status.busy) {
       setBusyState(shouldShowBusy, null, statusText);
+    } else {
+      setBusyState(false);
     }
   }
 }
