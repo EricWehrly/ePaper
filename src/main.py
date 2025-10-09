@@ -58,6 +58,7 @@ class ePaperController:
         self._carousel_thread = None
         self._carousel_stop_event = threading.Event()
         self._carousel_active = False  # Track if carousel is currently cycling
+        self._last_display_completion = None  # Timestamp when last display completed
         # Persistence paths
         project_root = get_project_root()
         self.config_dir = project_root / 'config'
@@ -267,11 +268,15 @@ class ePaperController:
         # Reset current image on shutdown (but state is already saved)
         self.current_image = None
 
-    def show_image(self, image_path):
+    def show_image(self, image_path, reset_carousel_timer=True):
         """Show an image on the display and update current_image state.
 
         This centralizes tracking so the web UI can report the active image.
         Sets current_image to the incoming image before display begins.
+        
+        Args:
+            image_path: Path to image to display
+            reset_carousel_timer: If True, resets carousel timer (for manual displays)
         """
         if not self.display_manager:
             raise RuntimeError("Display manager not initialized")
@@ -282,6 +287,13 @@ class ePaperController:
             self._save_state()
             try:
                 self.display_manager.show_image(image_path)
+                # Track completion timestamp for carousel timing
+                import time
+                self._last_display_completion = time.time()
+                
+                # If this is a manual display, carousel should wait full interval from now
+                if reset_carousel_timer:
+                    logger.info(f"Manual display reset carousel timer at {self._last_display_completion}")
             finally:
                 self._set_busy(False)
 
@@ -294,6 +306,9 @@ class ePaperController:
             try:
                 self.display_manager.clear_display()
                 self.current_image = None
+                # Track completion timestamp
+                import time
+                self._last_display_completion = time.time()
                 # Persist cleared state immediately
                 self._save_state()
             finally:
@@ -337,6 +352,22 @@ class ePaperController:
                         except ValueError:
                             idx = 0
                     
+                    # Wait for proper interval from last display completion
+                    interval = max(5, int(self.settings.get('interval_sec', 30)))
+                    if self._last_display_completion:
+                        elapsed = time.time() - self._last_display_completion
+                        remaining = max(0, interval - elapsed)
+                        if remaining > 0:
+                            # Wait for the remaining time in 0.1s increments
+                            for _ in range(int(remaining * 10)):
+                                if self._carousel_stop_event.is_set() or not self.running:
+                                    break
+                                time.sleep(0.1)
+                    
+                    # Check again if we should stop before displaying
+                    if self._carousel_stop_event.is_set() or not self.running:
+                        break
+                    
                     # Set busy state and update current_image to incoming image BEFORE display starts
                     with self._busy_lock:
                         self._set_busy(True)
@@ -344,22 +375,17 @@ class ePaperController:
                         self.current_image = str(images[idx])
                         self._save_state()
                         try:
-                            # Show the image (this calls display manager)
+                            # Show the image (this calls display manager directly, not through show_image wrapper)
                             if not self.display_manager:
                                 raise RuntimeError("Display manager not initialized")
                             self.display_manager.show_image(str(images[idx]))
+                            # Track completion timestamp for next iteration
+                            self._last_display_completion = time.time()
                             
                             # Keep busy state for a bit longer to ensure UI sees it
                             time.sleep(0.5)  # Half second for UI to catch the busy state
                         finally:
                             self._set_busy(False)
-                    
-                    # Wait for interval or stop
-                    interval = max(5, int(self.settings.get('interval_sec', 30)))
-                    for _ in range(interval * 10):  # 0.1s ticks
-                        if self._carousel_stop_event.is_set() or not self.running:
-                            break
-                        time.sleep(0.1)
                 except Exception as e:
                     logger.error(f"Carousel loop error: {e}")
                     time.sleep(2)

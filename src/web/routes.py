@@ -32,6 +32,7 @@ def register_routes(app):
                 "current_image": controller.current_image,
                 "busy": controller.is_busy(),
                 "carousel_active": getattr(controller, '_carousel_active', False),
+                "last_display_completion": getattr(controller, '_last_display_completion', None),
                 "settings": controller.settings
             })
         except Exception as e:

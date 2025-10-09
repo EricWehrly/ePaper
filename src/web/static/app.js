@@ -16,7 +16,7 @@ let state = {
   settings: {},
   busy: false,
   carouselActive: false,
-  lastImageChange: null,
+  lastDisplayCompletion: null,
   countdownInterval: null
 };
 
@@ -159,7 +159,7 @@ function updateCountdown() {
   const isCarouselMode = state.settings.mode === 'carousel';
   const carouselActive = state.carouselActive;
   
-  if (!isCarouselMode || !carouselActive || !state.lastImageChange) {
+  if (!isCarouselMode || !carouselActive || !state.lastDisplayCompletion) {
     countdownEl.textContent = '--';
     countdownEl.classList.add('disabled');
     return;
@@ -167,7 +167,8 @@ function updateCountdown() {
   
   countdownEl.classList.remove('disabled');
   const intervalMs = (state.settings.interval_sec || 30) * 1000;
-  const elapsed = Date.now() - state.lastImageChange;
+  const completionTime = state.lastDisplayCompletion * 1000; // Convert to milliseconds
+  const elapsed = Date.now() - completionTime;
   const remaining = Math.max(0, intervalMs - elapsed);
   const secondsLeft = Math.ceil(remaining / 1000);
   
@@ -181,10 +182,9 @@ function updateControlsFromStatus(status, previousBusyState) {
   const orientation = (status.settings && status.settings.orientation) || 'portrait';
   const carouselActive = status.carousel_active || false;
   
-  // Update last image change time if current image changed
-  if (status.current_image && status.current_image !== state.lastCurrentImage) {
-    state.lastImageChange = Date.now();
-    state.lastCurrentImage = status.current_image;
+  // Update completion timestamp from server
+  if (status.last_display_completion) {
+    state.lastDisplayCompletion = status.last_display_completion;
   }
   
   // Update UI controls to reflect current settings
