@@ -128,13 +128,11 @@ async function refreshImages() {
     state.convertedImages = all;
     
     all.forEach((item, idx) => {
-      const thumb = el('div', {class:'thumb'});
-      const img = el('img', {src:'/static_image?path=' + encodeURIComponent(item.path)});
+      const thumb = el('div', {class:'thumb', title: item.name});
+      const img = el('img', {src:'/static_image?path=' + encodeURIComponent(item.path), alt: item.name});
       const name = el('div', {class:'name'}, item.name);
-      const meta = el('div', {class:'meta'}, item.type);
-      const text = el('div', {}, name, meta);
       thumb.appendChild(img);
-      thumb.appendChild(text);
+      thumb.appendChild(name);
       thumb.addEventListener('click', async () => {
         if (thumb.classList.contains('disabled')) return;
         // Disable all thumbs while updating

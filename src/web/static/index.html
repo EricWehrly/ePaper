@@ -10,23 +10,34 @@
   <div class="container">
     <h1>ePaper</h1>
     <div class="panel">
-      <div class="display-box" id="displayBox">
+      <!-- Display section with preview and thumbnails -->
+      <div class="display-section">
+        <div class="display-box" id="displayBox">
         <div class="placeholder" id="placeholder">No image currently displayed</div>
         <img id="currentImage" src="" alt="Current display" style="display:none;"/>
         <div class="preview-overlay" id="previewOverlay" style="display:none;">
           <div class="spinner" id="spinner"></div>
         </div>
         <div class="preview-status" id="previewStatus" aria-live="polite"></div>
+
+      </div>
+        <div class="thumbs" id="thumbs">
+          <div class="thumb-list" id="thumbList"></div>
+        </div>
+      </div>
+      
+      <!-- Controls section - separate box below display -->
+      <div class="controls-box">
         <div class="controls primary-controls display-controls" id="primaryControls">
           <div class="mode-group control-group">
             <label>Mode:</label>
-            <button class="ctl-btn control display-mode busy-sensitive" data-mode="image" id="modeImageBtn" aria-pressed="true">Image</button>
-            <button class="ctl-btn control display-mode busy-sensitive" data-mode="carousel" id="modeCarouselBtn" aria-pressed="false">Carousel</button>
+            <button class="ctl-btn control display-mode" data-mode="image" id="modeImageBtn" aria-pressed="true">Image</button>
+            <button class="ctl-btn control display-mode" data-mode="carousel" id="modeCarouselBtn" aria-pressed="false">Carousel</button>
           </div>
           <div class="nav-group control-group">
-            <button class="ctl-btn control display-control busy-sensitive" id="prevBtn" title="Previous image" disabled>&lt;</button>
-            <button class="ctl-btn control display-control busy-sensitive" id="nextBtn" title="Next image" disabled>&gt;</button>
-            <button class="ctl-btn control display-setting" id="autoplayToggle" data-playing="false" disabled>Autoplay: Off</button>
+            <button class="ctl-btn control display-control" id="prevBtn" title="Previous image">&lt;</button>
+            <button class="ctl-btn control display-control" id="nextBtn" title="Next image">&gt;</button>
+            <button class="ctl-btn control display-setting" id="autoplayToggle" data-playing="false">Autoplay: Off</button>
           </div>
         </div>
         <div class="controls secondary-controls display-controls" id="secondaryControls">
@@ -37,24 +48,17 @@
               <option value="landscape">Landscape</option>
             </select>
           </div>
-            <div class="interval-group control-group">
-              <label for="intervalInput">Interval (s):</label>
-              <input id="intervalInput" class="control display-setting" type="number" min="5" step="1" value="30" />
-            </div>
+          <div class="interval-group control-group">
+            <label for="intervalInput">Interval (s):</label>
+            <input id="intervalInput" class="control display-setting" type="number" min="5" step="1" value="30" />
+          </div>
           <div class="actions-group control-group">
-            <button id="clearBtn" class="ctl-btn control display-control danger busy-sensitive" title="Clear ePaper display">Clear</button>
+            <button id="clearBtn" class="ctl-btn control display-control danger" title="Clear ePaper display">Clear</button>
           </div>
         </div>
       </div>
-      <div class="thumbs" id="thumbs">
-        <div class="thumbs-header">
-          <h2>Available Images</h2>
-          <!-- Clear button moved to secondary controls -->
-        </div>
-        <div class="thumb-list" id="thumbList"></div>
-      </div>
     </div>
   </div>
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

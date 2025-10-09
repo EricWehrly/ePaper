@@ -4,10 +4,10 @@
 
 body {
 	font-family: Arial, sans-serif;
-	background: #f4f6f8;
+	background: #f2f0eb;
 	margin: 0;
 	padding: 20px;
-	color: #222
+	color: #2c3e50
 }
 
 .container {
@@ -21,6 +21,13 @@ h1 {
 
 .panel {
 	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	align-items: stretch
+}
+
+.display-section {
+	display: flex;
 	gap: 20px;
 	align-items: flex-start
 }
@@ -28,12 +35,14 @@ h1 {
 .display-box {
 	flex: 1;
 	background: #fff;
-	border: 1px solid #ddd;
+	border: 1px solid #d4cfca;
+	border-radius: 8px;
 	padding: 20px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 420px
+	height: 420px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1)
 }
 
 .display-box img {
@@ -41,48 +50,71 @@ h1 {
 	max-height: 100%;
 }
 
-/* Controls overlay area inside display box */
+/* Controls box - separate from display */
+.controls-box {
+	background: #fff;
+	border: 1px solid #d4cfca;
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
 .controls {
-	position: absolute;
-	left: 8px;
-	right: 8px;
 	display: flex;
 	gap: 12px;
 	align-items: center;
+	justify-content: space-between;
 	flex-wrap: wrap;
+	margin-bottom: 12px;
 }
 
-.primary-controls {
-	top: 8px;
-	justify-content: space-between;
+.controls:last-child {
+	margin-bottom: 0;
 }
 
-.secondary-controls {
-	bottom: 8px;
-	justify-content: space-between;
-}
+
 
 .controls label {
-	font-size: 0.75rem;
+	font-size: 0.8rem;
+	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: .5px;
-	color: #333;
-	margin-right: 4px;
+	color: #374151;
+	margin-right: 8px;
 }
 
-.ctl-btn {
-	border: 1px solid #007bff;
-	background: #fff;
-	color: #007bff;
-	padding: 4px 10px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 0.75rem;
+.thumbs-header {
+	margin-bottom: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+.thumbs-header h2 {
+	margin: 0;
+	font-size: 1rem;
+	color: #374151;
 	font-weight: 600;
 }
 
+.ctl-btn {
+	border: 1px solid #1e3a8a;
+	background: #fff;
+	color: #1e3a8a;
+	padding: 6px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.8rem;
+	font-weight: 600;
+	transition: all 0.2s ease;
+}
+
+.ctl-btn:hover:not(:disabled):not(.disabled) {
+	background: #f8fafc;
+	border-color: #1e40af;
+}
+
 .ctl-btn[aria-pressed="true"], .ctl-btn.active {
-	background: #007bff;
+	background: #1e3a8a;
 	color: #fff;
 }
 
@@ -92,12 +124,12 @@ h1 {
 }
 
 .ctl-btn.danger {
-	border-color: #c62828;
-	color: #c62828;
+	border-color: #dc2626;
+	color: #dc2626;
 }
 
-.ctl-btn.danger:hover:not(:disabled) {
-	background: #c62828;
+.ctl-btn.danger:hover:not(:disabled):not(.disabled) {
+	background: #dc2626;
 	color: #fff;
 }
 
@@ -153,11 +185,32 @@ h1 {
 
 #intervalInput {
 	width: 72px;
-	padding: 3px 4px;
+	padding: 6px 8px;
+	border: 1px solid #d1d5db;
+	border-radius: 4px;
+	font-size: 0.8rem;
+	color: #374151;
+}
+
+#intervalInput:focus {
+	outline: none;
+	border-color: #1e3a8a;
+	box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.1);
 }
 
 #orientationSelect {
-	padding: 3px 4px;
+	padding: 6px 8px;
+	border: 1px solid #d1d5db;
+	border-radius: 4px;
+	background: #fff;
+	font-size: 0.8rem;
+	color: #374151;
+}
+
+#orientationSelect:focus {
+	outline: none;
+	border-color: #1e3a8a;
+	box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.1);
 }
 
 .placeholder {
@@ -204,45 +257,52 @@ h1 {
 .thumbs {
 	width: 320px;
 	background: #fff;
-	border: 1px solid #ddd;
+	border: 1px solid #d4cfca;
+	border-radius: 8px;
 	padding: 12px;
 	height: 420px;
-	overflow: auto
+	overflow: auto;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1)
 }
 
 .thumb-list {
-	display: flex;
-	flex-direction: column;
-	gap: 8px
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px
 }
 
 .thumb {
 	display: flex;
-	gap: 8px;
+	flex-direction: column;
 	align-items: center;
-	padding: 6px;
-	border-radius: 4px;
+	padding: 8px;
+	border-radius: 6px;
 	cursor: pointer;
+	transition: background-color 0.2s ease;
 }
 
 .thumb:hover {
-	background: #f0f4f8
+	background: #f8fafc;
 }
 
 .thumb img {
-	width: 64px;
-	height: 48px;
-	object-fit: cover;
-	border: 1px solid #ccc
+	width: 100%;
+	max-width: 280px;
+	height: auto;
+	object-fit: contain;
+	border: 1px solid #d1d5db;
+	border-radius: 4px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .thumb .name {
-	font-size: 0.9rem
-}
-
-.thumb .meta {
-	font-size: 0.75rem;
-	color: #666
+	font-size: 0.85rem;
+	font-weight: 500;
+	color: #374151;
+	text-align: center;
+	margin-top: 6px;
+	line-height: 1.2;
+	word-break: break-word;
 }
 
 .button {
