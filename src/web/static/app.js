@@ -19,12 +19,15 @@ let state = {
 };
 
 function setBusyState(busy, incomingImagePath = null, statusText = '') {
+  const container = document.querySelector('.container');
   const displayBox = document.getElementById('displayBox');
   const overlay = document.getElementById('previewOverlay');
   const statusEl = document.getElementById('previewStatus');
   const currentImage = document.getElementById('currentImage');
   
   if (busy) {
+    // Add busy class to container - CSS will handle all disabled states
+    container.classList.add('display-busy');
     displayBox.classList.add('display-busy');
     overlay.style.display = 'block';
     statusEl.textContent = statusText;
@@ -35,29 +38,12 @@ function setBusyState(busy, incomingImagePath = null, statusText = '') {
       currentImage.style.display = '';
       document.getElementById('placeholder').style.display = 'none';
     }
-    
-    // Disable busy-sensitive controls
-    document.querySelectorAll('.busy-sensitive').forEach(el => {
-      el.disabled = true;
-    });
-    document.querySelectorAll('.thumb').forEach(el => {
-      el.classList.add('disabled');
-    });
   } else {
+    // Remove busy class from container - CSS will re-enable controls
+    container.classList.remove('display-busy');
     displayBox.classList.remove('display-busy');
     overlay.style.display = 'none';
     statusEl.textContent = '';
-    
-    // Re-enable controls (but respect their individual disabled states)
-    document.querySelectorAll('.busy-sensitive').forEach(el => {
-      // Only re-enable if not disabled for other reasons
-      if (!el.hasAttribute('data-originally-disabled')) {
-        el.disabled = false;
-      }
-    });
-    document.querySelectorAll('.thumb').forEach(el => {
-      el.classList.remove('disabled');
-    });
   }
 }
 
@@ -118,13 +104,14 @@ async function refresh() {
       placeholder.style.display = '';
     }
 
-    // Update state from status
+    // Update state from status (but store previous busy state first)
+    const previousBusyState = state.busy;
     state.settings = status.settings || state.settings;
     state.busy = status.busy;
     state.carouselActive = status.carousel_active || false;
     
     // Update UI controls based on status
-    updateControlsFromStatus(status);
+    updateControlsFromStatus(status, previousBusyState);
   } catch (e) {
     console.error(e);
   }
@@ -169,13 +156,14 @@ async function refreshImages() {
   }
 }
 
-function updateControlsFromStatus(status) {
+function updateControlsFromStatus(status, previousBusyState) {
   const mode = (status.settings && status.settings.mode) || 'image';
   const autoplay = !!(status.settings && status.settings.autoplay);
   const intervalSec = (status.settings && status.settings.interval_sec) || 30;
   const orientation = (status.settings && status.settings.orientation) || 'portrait';
   const carouselActive = status.carousel_active || false;
   
+  // Update UI controls to reflect current settings
   document.getElementById('modeImageBtn').setAttribute('aria-pressed', mode==='image');
   document.getElementById('modeCarouselBtn').setAttribute('aria-pressed', mode==='carousel');
   const autoplayBtn = document.getElementById('autoplayToggle');
@@ -184,38 +172,33 @@ function updateControlsFromStatus(status) {
   document.getElementById('intervalInput').value = intervalSec;
   document.getElementById('orientationSelect').value = orientation;
   
-  // Enable/disable navigation - prev/next work in any mode when images exist
-  const navEnabled = state.convertedImages.length > 0;
-  const autoplayEnabled = mode === 'carousel' && state.convertedImages.length > 0;
+  // Handle natural disabled states using CSS classes
+  const hasImages = state.convertedImages.length > 0;
+  const isCarouselMode = mode === 'carousel';
   
+  // Navigation buttons disabled when no images
   ['prevBtn','nextBtn'].forEach(id => {
     const elRef = document.getElementById(id);
-    if (!navEnabled) {
-      elRef.setAttribute('data-originally-disabled', 'true');
-      elRef.disabled = true;
+    if (hasImages) {
+      elRef.classList.remove('disabled');
     } else {
-      elRef.removeAttribute('data-originally-disabled');
-      if (!status.busy) elRef.disabled = false;
+      elRef.classList.add('disabled');
     }
   });
   
-  // Autoplay toggle only enabled in carousel mode
-  const autoplayToggle = document.getElementById('autoplayToggle');
-  if (!autoplayEnabled) {
-    autoplayToggle.setAttribute('data-originally-disabled', 'true');
-    autoplayToggle.disabled = true;
+  // Autoplay toggle only works in carousel mode
+  if (isCarouselMode && hasImages) {
+    autoplayBtn.classList.remove('disabled');
   } else {
-    autoplayToggle.removeAttribute('data-originally-disabled');
-    if (!status.busy) autoplayToggle.disabled = false;
+    autoplayBtn.classList.add('disabled');
   }
   
-  // Handle busy state from server
+  // Handle busy state from server - this is the key state management
   const shouldShowBusy = status.busy;
   const statusText = carouselActive && status.busy ? 'Carousel cycling...' : 
                      status.busy ? 'Display busy...' : '';
   
-  if (shouldShowBusy !== state.busy) {
-    state.busy = shouldShowBusy;
+  if (shouldShowBusy !== previousBusyState) {
     // Show current image with overlay when carousel is cycling
     if (carouselActive && status.busy && status.current_image) {
       setBusyState(shouldShowBusy, status.current_image, statusText);
@@ -265,7 +248,7 @@ window.addEventListener('load', () => {
   // Navigation
   document.getElementById('nextBtn').addEventListener('click', async (e) => {
     // Don't do anything if button is disabled
-    if (e.target.disabled) return;
+    if (e.target.classList.contains('disabled')) return;
     
     setBusyState(true, null, 'Loading next image...');
     try {
@@ -285,7 +268,7 @@ window.addEventListener('load', () => {
   });
   document.getElementById('prevBtn').addEventListener('click', async (e) => {
     // Don't do anything if button is disabled
-    if (e.target.disabled) return;
+    if (e.target.classList.contains('disabled')) return;
     
     setBusyState(true, null, 'Loading previous image...');
     try {
@@ -305,7 +288,9 @@ window.addEventListener('load', () => {
   });
 
   // Autoplay
-  document.getElementById('autoplayToggle').addEventListener('click', async () => {
+  document.getElementById('autoplayToggle').addEventListener('click', async (e) => {
+    // Don't do anything if button is disabled
+    if (e.target.classList.contains('disabled')) return;
     const playing = document.getElementById('autoplayToggle').dataset.playing === 'true';
     await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({autoplay: !playing})});
     setTimeout(refresh, 300);

@@ -103,14 +103,35 @@ h1 {
 
 /* Generic control classification marker classes (no base styles applied) */
 
-/* Container state when display is busy */
-.display-box.display-busy .busy-sensitive,
-.display-box.display-busy .busy-sensitive:disabled {
+/* Container state when display is busy - disable ALL controls */
+.container.display-busy .control {
 	opacity: 0.4;
 	cursor: not-allowed;
+	pointer-events: none;
 }
 
-.display-box.display-busy .busy-sensitive {
+/* Specifically handle display-mode buttons in busy state */
+.container.display-busy .display-mode.control {
+	opacity: 0.4;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+/* Also disable thumbnails when busy */
+.container.display-busy .thumb {
+	opacity: 0.5;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+.container.display-busy .thumb img {
+	filter: grayscale(60%) blur(0.5px);
+}
+
+/* Additional conditional disabled states (handled by adding classes via JS) */
+.control[disabled], .control.disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
 	pointer-events: none;
 }
 
