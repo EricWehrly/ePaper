@@ -1,8 +1,8 @@
 /* Consolidated stylesheet - cross-browser scrollbar + variables */
 
 :root {
-    --bg-base: #f5f3ed;
-    --panel-bg: #ffffff;
+    --bg-base: #e9e5dd; /* darken page background a touch */
+    --panel-bg: #f1f5f9; /* light slate gray for UI panels/controls */
     --accent-blue: #1e3a8a;
     --accent-blue-2: #1e40af;
     --accent-blue-3: #1d4ed8;
@@ -112,6 +112,12 @@ h1 { text-align: center; }
 .ctl-btn.danger { border-color: var(--danger); color: var(--danger); }
 .ctl-btn.danger:hover:not(:disabled):not(.disabled) { background: var(--danger); color: #fff; }
 
+/* Center the spinner element by id */
+#spinner {
+    display: grid;
+    place-items: center;
+}
+
 /* Busy / disabled states */
 .container.display-busy .control { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .container.display-busy .display-mode.control { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
@@ -140,9 +146,8 @@ h1 { text-align: center; }
 
 .thumbs {
     width: 320px;
-    background: var(--panel-bg);
-    background-image: radial-gradient(circle at 2px 2px, var(--subtle-dot) 1px, transparent 0);
-    background-size: 20px 20px;
+    background: transparent;
+    background-image: none;
     border: 1px solid var(--muted);
     border-radius: var(--card-radius);
     padding: 12px;
@@ -157,12 +162,28 @@ h1 { text-align: center; }
 
 .thumb-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
-.thumb { display: block; padding: 4px; border-radius: var(--thumb-radius); cursor: pointer; transition: background-color 0.2s ease; }
-.thumb:hover { background: var(--panel-spot); }
-.thumb img { width: 100%; max-width: 280px; max-height: 280px; height: auto; object-fit: contain; border: 1px solid var(--muted-2); border-radius: var(--small-radius); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.thumb {
+    display: block;
+    padding: 4px;
+    border-radius: var(--thumb-radius);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    background: transparent;
+}
+.thumb:hover { background: transparent; }
+.thumb img {
+    width: 100%;
+    max-width: 280px;
+    max-height: 280px;
+    height: auto;
+    object-fit: contain;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: var(--small-radius);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
 
 .button { margin-left: auto; padding: 6px 8px; background: var(--btn-blue); color: #fff; border-radius: var(--small-radius); text-decoration: none; }
 
 .thumb.disabled { opacity: 0.5; cursor: default; }
-.thumb.disabled img { filter: grayscale(60%)
+.thumb.disabled img { filter: grayscale(60%) blur(0.5px); }
 
