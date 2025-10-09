@@ -17,24 +17,84 @@ let state = {
   busy: false
 };
 
-async function displayImage(path, showOverlay=true) {
+function setBusyState(busy, incomingImagePath = null, statusText = '') {
+  const displayBox = document.getElementById('displayBox');
   const overlay = document.getElementById('previewOverlay');
   const statusEl = document.getElementById('previewStatus');
-  if (showOverlay) {
+  const currentImage = document.getElementById('currentImage');
+  
+  if (busy) {
+    displayBox.classList.add('display-busy');
     overlay.style.display = '';
-    statusEl.textContent = 'Applying image...';
+    statusEl.textContent = statusText;
+    
+    // Show incoming image if provided
+    if (incomingImagePath) {
+      currentImage.src = '/static_image?path=' + encodeURIComponent(incomingImagePath);
+      currentImage.style.display = '';
+      document.getElementById('placeholder').style.display = 'none';
+    }
+    
+    // Disable busy-sensitive controls
+    document.querySelectorAll('.busy-sensitive').forEach(el => {
+      el.disabled = true;
+    });
+    document.querySelectorAll('.thumb').forEach(el => {
+      el.classList.add('disabled');
+    });
+  } else {
+    displayBox.classList.remove('display-busy');
+    overlay.style.display = 'none';
+    statusEl.textContent = '';
+    
+    // Re-enable controls (but respect their individual disabled states)
+    document.querySelectorAll('.busy-sensitive').forEach(el => {
+      // Only re-enable if not disabled for other reasons
+      if (!el.hasAttribute('data-originally-disabled')) {
+        el.disabled = false;
+      }
+    });
+    document.querySelectorAll('.thumb').forEach(el => {
+      el.classList.remove('disabled');
+    });
   }
+}
+
+async function displayImage(path, statusText = 'Applying image...') {
+  setBusyState(true, path, statusText);
   try {
     const res = await fetch('/api/display/image', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image_path: path})});
-    if (!res.ok) throw new Error('display failed');
-    await res.json().catch(()=>null);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        // Display is busy, don't change UI state
+        return;
+      }
+      throw new Error(errorData.error || 'display failed');
+    }
   } catch (e) {
     console.error(e);
+    alert('Failed to display image: ' + e.message);
   } finally {
-    if (showOverlay) {
-      overlay.style.display = 'none';
-      statusEl.textContent = '';
+    setBusyState(false);
+    setTimeout(refresh, 300);
+  }
+}
+
+async function clearDisplay() {
+  setBusyState(true, null, 'Clearing display...');
+  try {
+    const res = await fetch('/api/display/clear', {method:'POST'});
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      if (res.status === 409) return; // Already busy
+      throw new Error(errorData.error || 'clear failed');
     }
+  } catch (e) {
+    console.error(e);
+    alert('Failed to clear display: ' + e.message);
+  } finally {
+    setBusyState(false);
     setTimeout(refresh, 300);
   }
 }
@@ -78,22 +138,14 @@ async function refresh() {
         if (thumb.classList.contains('disabled')) return;
         // Disable all thumbs while updating
         document.querySelectorAll('.thumb').forEach(t => t.classList.add('disabled'));
-        // Show spinner overlay and status
-        const overlay = document.getElementById('previewOverlay');
-        const statusEl = document.getElementById('previewStatus');
-        overlay.style.display = '';
-        statusEl.textContent = 'Applying image...';
-
+        
         try {
-          await displayImage(item.path, false);
+          await displayImage(item.path, `Applying ${item.name}...`);
         } catch (e) {
-          alert('Failed to display image');
+          console.error(e);
         } finally {
-          // Re-enable inputs and hide overlay
+          // Re-enable thumbs
           document.querySelectorAll('.thumb').forEach(t => t.classList.remove('disabled'));
-          overlay.style.display = 'none';
-          statusEl.textContent = '';
-          setTimeout(refresh, 500);
         }
       });
       list.appendChild(thumb);
@@ -115,36 +167,33 @@ function updateControlsFromStatus(status) {
   autoplayBtn.dataset.playing = autoplay ? 'true':'false';
   document.getElementById('intervalInput').value = intervalSec;
   document.getElementById('orientationSelect').value = orientation;
+  
   // Enable/disable navigation based on mode & images
   const navEnabled = mode === 'carousel' && state.convertedImages.length>0;
   ['prevBtn','nextBtn','autoplayToggle'].forEach(id => {
     const elRef = document.getElementById(id);
-    elRef.disabled = !navEnabled;
+    if (!navEnabled) {
+      elRef.setAttribute('data-originally-disabled', 'true');
+      elRef.disabled = true;
+    } else {
+      elRef.removeAttribute('data-originally-disabled');
+      if (!status.busy) elRef.disabled = false;
+    }
   });
-  // Busy state styling
-  const displayBox = document.getElementById('displayBox');
-  if (status.busy) displayBox.classList.add('display-busy'); else displayBox.classList.remove('display-busy');
+  
+  // Busy state handling
+  if (status.busy !== state.busy) {
+    state.busy = status.busy;
+    setBusyState(status.busy);
+  }
 }
 
 window.addEventListener('load', () => {
   refresh();
   setInterval(refresh, 5000);
 
-  document.getElementById('clearBtn').addEventListener('click', async () => {
-    const overlay = document.getElementById('previewOverlay');
-    const statusEl = document.getElementById('previewStatus');
-    overlay.style.display = '';
-    statusEl.textContent = 'Clearing display...';
-    try {
-      const r = await fetch('/api/display/clear', {method:'POST'});
-      if (!r.ok) throw new Error('clear failed');
-    } catch (e) {
-      alert('Failed to clear display');
-    } finally {
-      overlay.style.display = 'none';
-      statusEl.textContent = '';
-      setTimeout(refresh, 300);
-    }
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    clearDisplay();
   });
 
   // Mode buttons
@@ -159,12 +208,38 @@ window.addEventListener('load', () => {
 
   // Navigation
   document.getElementById('nextBtn').addEventListener('click', async () => {
-    await fetch('/api/display/next', {method:'POST'});
-    setTimeout(refresh, 300);
+    setBusyState(true, null, 'Loading next image...');
+    try {
+      const res = await fetch('/api/display/next', {method:'POST'});
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 409) return; // Already busy
+        throw new Error(errorData.error || 'next failed');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to go to next image: ' + e.message);
+    } finally {
+      setBusyState(false);
+      setTimeout(refresh, 300);
+    }
   });
   document.getElementById('prevBtn').addEventListener('click', async () => {
-    await fetch('/api/display/prev', {method:'POST'});
-    setTimeout(refresh, 300);
+    setBusyState(true, null, 'Loading previous image...');
+    try {
+      const res = await fetch('/api/display/prev', {method:'POST'});
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 409) return; // Already busy
+        throw new Error(errorData.error || 'prev failed');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to go to previous image: ' + e.message);
+    } finally {
+      setBusyState(false);
+      setTimeout(refresh, 300);
+    }
   });
 
   // Autoplay

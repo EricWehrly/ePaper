@@ -231,6 +231,18 @@ class ePaperController:
             finally:
                 self._set_busy(False)
 
+    def clear_display(self):
+        """Clear the display and update state."""
+        if not self.display_manager:
+            raise RuntimeError("Display manager not initialized")
+        with self._busy_lock:
+            self._set_busy(True)
+            try:
+                self.display_manager.clear_display()
+                self.current_image = None
+            finally:
+                self._set_busy(False)
+
     # ---------------- Carousel Control ----------------
     def start_carousel(self):
         """Start server-driven carousel if not already running."""

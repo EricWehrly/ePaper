@@ -82,6 +82,9 @@ def register_routes(app):
                 
             if not controller.display_manager:
                 return jsonify({"error": "Display not initialized"}), 500
+
+            if controller.is_busy():
+                return jsonify({"error": "Display busy"}), 409
                 
             data = request.get_json()
             if not data or 'image_path' not in data:
@@ -177,7 +180,10 @@ def register_routes(app):
             if not controller.display_manager:
                 return jsonify({"error": "Display not initialized"}), 500
 
-            controller.display_manager.clear_display()
+            if controller.is_busy():
+                return jsonify({"error": "Display busy"}), 409
+
+            controller.clear_display()
             return jsonify({"success": True})
 
         except Exception as e:
@@ -195,7 +201,10 @@ def register_routes(app):
             if not controller.display_manager:
                 return jsonify({"error": "Display not initialized"}), 500
 
-            controller.display_manager.clear_display()
+            if controller.is_busy():
+                return jsonify({"error": "Display busy"}), 409
+
+            controller.clear_display()
             return jsonify({"success": True})
 
         except Exception as e:
