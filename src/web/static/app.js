@@ -153,6 +153,7 @@ async function refresh() {
   } catch (e) {
     console.error(e);
   }
+  return Promise.resolve(); // Ensure it returns a promise
 }
 
 function updateControlsFromStatus(status) {
@@ -168,9 +169,11 @@ function updateControlsFromStatus(status) {
   document.getElementById('intervalInput').value = intervalSec;
   document.getElementById('orientationSelect').value = orientation;
   
-  // Enable/disable navigation based on mode & images
-  const navEnabled = mode === 'carousel' && state.convertedImages.length>0;
-  ['prevBtn','nextBtn','autoplayToggle'].forEach(id => {
+  // Enable/disable navigation - prev/next work in any mode when images exist
+  const navEnabled = state.convertedImages.length > 0;
+  const autoplayEnabled = mode === 'carousel' && state.convertedImages.length > 0;
+  
+  ['prevBtn','nextBtn'].forEach(id => {
     const elRef = document.getElementById(id);
     if (!navEnabled) {
       elRef.setAttribute('data-originally-disabled', 'true');
@@ -181,6 +184,16 @@ function updateControlsFromStatus(status) {
     }
   });
   
+  // Autoplay toggle only enabled in carousel mode
+  const autoplayToggle = document.getElementById('autoplayToggle');
+  if (!autoplayEnabled) {
+    autoplayToggle.setAttribute('data-originally-disabled', 'true');
+    autoplayToggle.disabled = true;
+  } else {
+    autoplayToggle.removeAttribute('data-originally-disabled');
+    if (!status.busy) autoplayToggle.disabled = false;
+  }
+  
   // Busy state handling
   if (status.busy !== state.busy) {
     state.busy = status.busy;
@@ -188,9 +201,19 @@ function updateControlsFromStatus(status) {
   }
 }
 
+let refreshTimer = null;
+
+function scheduleNextRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  const isCarouselActive = state.settings.mode === 'carousel' && state.settings.autoplay;
+  const interval = isCarouselActive ? 1000 : 5000; // More frequent when carousel is running
+  refreshTimer = setTimeout(() => {
+    refresh().then(() => scheduleNextRefresh());
+  }, interval);
+}
+
 window.addEventListener('load', () => {
-  refresh();
-  setInterval(refresh, 5000);
+  refresh().then(() => scheduleNextRefresh());
 
   document.getElementById('clearBtn').addEventListener('click', () => {
     clearDisplay();
@@ -207,7 +230,10 @@ window.addEventListener('load', () => {
   });
 
   // Navigation
-  document.getElementById('nextBtn').addEventListener('click', async () => {
+  document.getElementById('nextBtn').addEventListener('click', async (e) => {
+    // Don't do anything if button is disabled
+    if (e.target.disabled) return;
+    
     setBusyState(true, null, 'Loading next image...');
     try {
       const res = await fetch('/api/display/next', {method:'POST'});
@@ -224,7 +250,10 @@ window.addEventListener('load', () => {
       setTimeout(refresh, 300);
     }
   });
-  document.getElementById('prevBtn').addEventListener('click', async () => {
+  document.getElementById('prevBtn').addEventListener('click', async (e) => {
+    // Don't do anything if button is disabled
+    if (e.target.disabled) return;
+    
     setBusyState(true, null, 'Loading previous image...');
     try {
       const res = await fetch('/api/display/prev', {method:'POST'});
