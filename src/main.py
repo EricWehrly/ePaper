@@ -58,11 +58,12 @@ class ePaperController:
         self._carousel_thread = None
         self._carousel_stop_event = threading.Event()
         self._carousel_active = False  # Track if carousel is currently cycling
-        # Settings persistence path
+        # Persistence paths
         project_root = get_project_root()
         self.config_dir = project_root / 'config'
         self.config_dir.mkdir(exist_ok=True)
         self.settings_path = self.config_dir / 'settings.json'
+        self.state_path = self.config_dir / 'state.json'
         # Default runtime settings (will be overridden by persisted ones if available)
         self.settings = {
             'mode': 'image',           # 'image' or 'carousel'
@@ -70,8 +71,9 @@ class ePaperController:
             'interval_sec': 30,        # seconds between images in carousel
             'orientation': 'portrait'  # 'portrait' | 'landscape'
         }
-        # Load any persisted settings
+        # Load any persisted settings and state
         self._load_settings()
+        self._load_state()
         
         # Display orientation - initialize based on settings
         display.set_display_orientation(portrait_mode=self.settings.get('orientation','portrait') == 'portrait')
@@ -104,6 +106,44 @@ class ePaperController:
                 json.dump(self.settings, f, indent=2)
         except Exception as e:
             logger.warning(f"Failed to save settings: {e}")
+
+    # ---------------- State Persistence ----------------
+    def _load_state(self):
+        """Load runtime state from disk"""
+        try:
+            if self.state_path.exists():
+                with open(self.state_path, 'r') as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    # Restore current image if it exists and file is still present
+                    current_image = data.get('current_image')
+                    if current_image and current_image != 'cleared':
+                        if Path(current_image).exists():
+                            self.current_image = current_image
+                            logger.info(f"Restored current image: {current_image}")
+                        else:
+                            logger.warning(f"Persisted image no longer exists: {current_image}")
+                            self.current_image = None
+                    elif current_image == 'cleared':
+                        self.current_image = None
+                        logger.info("Restored cleared display state")
+                    
+                    # Add other state fields here as needed
+        except Exception as e:
+            logger.warning(f"Failed to load state: {e}")
+
+    def _save_state(self):
+        """Save runtime state to disk"""
+        try:
+            state_data = {
+                'current_image': self.current_image or 'cleared',
+                'timestamp': time.time(),
+                # Add other state fields here as needed
+            }
+            with open(self.state_path, 'w') as f:
+                json.dump(state_data, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save state: {e}")
 
     # ---------------- Busy State Helpers ----------------
     def is_busy(self):
@@ -208,13 +248,23 @@ class ePaperController:
         
     def shutdown(self):
         """Perform cleanup and shutdown"""
+        # Stop carousel if running
+        if self._carousel_thread and self._carousel_thread.is_alive():
+            self.stop_carousel()
+            
         if self.display_manager:
             try:
                 self.display_manager.cleanup()
             except Exception as e:
                 logger.error(f"Error during display cleanup: {e}")
 
-        # Reset current image on shutdown
+        # Save final state before shutdown
+        try:
+            self._save_state()
+        except Exception as e:
+            logger.error(f"Error saving state on shutdown: {e}")
+
+        # Reset current image on shutdown (but state is already saved)
         self.current_image = None
 
     def show_image(self, image_path):
@@ -229,6 +279,8 @@ class ePaperController:
             try:
                 self.display_manager.show_image(image_path)
                 self.current_image = image_path
+                # Persist state change immediately
+                self._save_state()
             finally:
                 self._set_busy(False)
 
@@ -241,6 +293,8 @@ class ePaperController:
             try:
                 self.display_manager.clear_display()
                 self.current_image = None
+                # Persist cleared state immediately
+                self._save_state()
             finally:
                 self._set_busy(False)
 
@@ -291,6 +345,8 @@ class ePaperController:
                                 raise RuntimeError("Display manager not initialized")
                             self.display_manager.show_image(str(images[idx]))
                             self.current_image = str(images[idx])
+                            # Persist state change during carousel
+                            self._save_state()
                             
                             # Keep busy state for a bit longer to ensure UI sees it
                             time.sleep(0.5)  # Half second for UI to catch the busy state
