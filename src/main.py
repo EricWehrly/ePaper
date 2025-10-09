@@ -456,6 +456,11 @@ class ePaperController:
                     self.display_manager.blank_on_cleanup = False
                 except Exception:
                     pass
+                
+                # Auto-start carousel if settings indicate it should be running
+                if self.settings.get('mode') == 'carousel' and self.settings.get('autoplay'):
+                    logger.info("Auto-starting carousel based on persisted settings")
+                    self.start_carousel()
             
             # Start web server in a background thread so we can handle signals
             import threading

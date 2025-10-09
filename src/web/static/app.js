@@ -103,7 +103,8 @@ async function clearDisplay() {
 async function refresh() {
   try {
     const status = await fetchJson('/api/status');
-    // Current image
+    
+    // Update current image display
     const current = status.current_image || null;
     const imgEl = document.getElementById('currentImage');
     const placeholder = document.getElementById('placeholder');
@@ -117,17 +118,28 @@ async function refresh() {
       placeholder.style.display = '';
     }
 
-    // Images list
+    // Update state from status
+    state.settings = status.settings || state.settings;
+    state.busy = status.busy;
+    state.carouselActive = status.carousel_active || false;
+    
+    // Update UI controls based on status
+    updateControlsFromStatus(status);
+  } catch (e) {
+    console.error(e);
+  }
+  return Promise.resolve(); // Ensure it returns a promise
+}
+
+async function refreshImages() {
+  try {
     const images = await fetchJson('/api/images');
     const list = document.getElementById('thumbList');
     list.innerHTML = '';
     // Only show converted images for now
     const all = images.converted_images || [];
     state.convertedImages = all;
-    state.settings = status.settings || state.settings;
-    state.busy = status.busy;
-    state.carouselActive = status.carousel_active || false;
-    updateControlsFromStatus(status);
+    
     all.forEach((item, idx) => {
       const thumb = el('div', {class:'thumb'});
       const img = el('img', {src:'/static_image?path=' + encodeURIComponent(item.path)});
@@ -155,7 +167,6 @@ async function refresh() {
   } catch (e) {
     console.error(e);
   }
-  return Promise.resolve(); // Ensure it returns a promise
 }
 
 function updateControlsFromStatus(status) {
@@ -220,15 +231,22 @@ let refreshTimer = null;
 
 function scheduleNextRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
-  const isCarouselActive = (state.settings.mode === 'carousel' && state.settings.autoplay) || state.carouselActive;
-  const interval = isCarouselActive ? 800 : 5000; // Very frequent when carousel is running
+  
+  // Only poll frequently if carousel is actually active on server, not just if settings suggest it should be
+  const isCarouselActive = state.carouselActive;
+  const interval = isCarouselActive ? 2000 : 8000; // 2 sec when carousel active, 8 sec otherwise
+  
   refreshTimer = setTimeout(() => {
     refresh().then(() => scheduleNextRefresh());
   }, interval);
 }
 
 window.addEventListener('load', () => {
-  refresh().then(() => scheduleNextRefresh());
+  // Load images list once at startup (images rarely change)
+  refreshImages().then(() => {
+    // Then start regular status polling  
+    refresh().then(() => scheduleNextRefresh());
+  });
 
   document.getElementById('clearBtn').addEventListener('click', () => {
     clearDisplay();
