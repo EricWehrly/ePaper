@@ -14,7 +14,8 @@ function el(tag, attrs={}, ...children) {
 let state = {
   convertedImages: [],
   settings: {},
-  busy: false
+  busy: false,
+  carouselActive: false
 };
 
 function setBusyState(busy, incomingImagePath = null, statusText = '') {
@@ -125,6 +126,7 @@ async function refresh() {
     state.convertedImages = all;
     state.settings = status.settings || state.settings;
     state.busy = status.busy;
+    state.carouselActive = status.carousel_active || false;
     updateControlsFromStatus(status);
     all.forEach((item, idx) => {
       const thumb = el('div', {class:'thumb'});
@@ -161,6 +163,8 @@ function updateControlsFromStatus(status) {
   const autoplay = !!(status.settings && status.settings.autoplay);
   const intervalSec = (status.settings && status.settings.interval_sec) || 30;
   const orientation = (status.settings && status.settings.orientation) || 'portrait';
+  const carouselActive = status.carousel_active || false;
+  
   document.getElementById('modeImageBtn').setAttribute('aria-pressed', mode==='image');
   document.getElementById('modeCarouselBtn').setAttribute('aria-pressed', mode==='carousel');
   const autoplayBtn = document.getElementById('autoplayToggle');
@@ -194,10 +198,18 @@ function updateControlsFromStatus(status) {
     if (!status.busy) autoplayToggle.disabled = false;
   }
   
-  // Busy state handling
-  if (status.busy !== state.busy) {
-    state.busy = status.busy;
-    setBusyState(status.busy);
+  // Handle busy state or carousel cycling state
+  const shouldShowBusy = status.busy || (carouselActive && status.busy);
+  const statusText = carouselActive && status.busy ? 'Carousel cycling...' : '';
+  
+  if (shouldShowBusy !== state.busy) {
+    state.busy = shouldShowBusy;
+    // Show current image with overlay when carousel is cycling
+    if (carouselActive && status.busy && status.current_image) {
+      setBusyState(shouldShowBusy, status.current_image, statusText);
+    } else {
+      setBusyState(shouldShowBusy, null, statusText);
+    }
   }
 }
 
@@ -205,8 +217,8 @@ let refreshTimer = null;
 
 function scheduleNextRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
-  const isCarouselActive = state.settings.mode === 'carousel' && state.settings.autoplay;
-  const interval = isCarouselActive ? 1000 : 5000; // More frequent when carousel is running
+  const isCarouselActive = (state.settings.mode === 'carousel' && state.settings.autoplay) || state.carouselActive;
+  const interval = isCarouselActive ? 800 : 5000; // Very frequent when carousel is running
   refreshTimer = setTimeout(() => {
     refresh().then(() => scheduleNextRefresh());
   }, interval);

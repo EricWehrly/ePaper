@@ -57,6 +57,7 @@ class ePaperController:
         # Carousel thread control
         self._carousel_thread = None
         self._carousel_stop_event = threading.Event()
+        self._carousel_active = False  # Track if carousel is currently cycling
         # Settings persistence path
         project_root = get_project_root()
         self.config_dir = project_root / 'config'
@@ -264,30 +265,49 @@ class ePaperController:
         self._save_settings()
 
     def _carousel_loop(self):
-        while not self._carousel_stop_event.is_set() and self.running:
-            try:
-                images = list(self.output_dir.glob('*.bmp'))
-                if not images:
-                    time.sleep(2)
-                    continue
-                # If current image not in list, reset index
-                if not self.current_image or Path(self.current_image) not in images:
-                    idx = 0
-                else:
-                    try:
-                        idx = (images.index(Path(self.current_image)) + 1) % len(images)
-                    except ValueError:
+        self._carousel_active = True
+        try:
+            while not self._carousel_stop_event.is_set() and self.running:
+                try:
+                    images = list(self.output_dir.glob('*.bmp'))
+                    if not images:
+                        time.sleep(2)
+                        continue
+                    # If current image not in list, reset index
+                    if not self.current_image or Path(self.current_image) not in images:
                         idx = 0
-                self.show_image(str(images[idx]))
-                # Wait for interval or stop
-                interval = max(5, int(self.settings.get('interval_sec', 30)))
-                for _ in range(interval * 10):  # 0.1s ticks
-                    if self._carousel_stop_event.is_set() or not self.running:
-                        break
-                    time.sleep(0.1)
-            except Exception as e:
-                logger.error(f"Carousel loop error: {e}")
-                time.sleep(2)
+                    else:
+                        try:
+                            idx = (images.index(Path(self.current_image)) + 1) % len(images)
+                        except ValueError:
+                            idx = 0
+                    
+                    # Set busy state before image change and keep it longer for UI visibility
+                    with self._busy_lock:
+                        self._set_busy(True)
+                        try:
+                            # Show the image (this calls display manager)
+                            if not self.display_manager:
+                                raise RuntimeError("Display manager not initialized")
+                            self.display_manager.show_image(str(images[idx]))
+                            self.current_image = str(images[idx])
+                            
+                            # Keep busy state for a bit longer to ensure UI sees it
+                            time.sleep(0.5)  # Half second for UI to catch the busy state
+                        finally:
+                            self._set_busy(False)
+                    
+                    # Wait for interval or stop
+                    interval = max(5, int(self.settings.get('interval_sec', 30)))
+                    for _ in range(interval * 10):  # 0.1s ticks
+                        if self._carousel_stop_event.is_set() or not self.running:
+                            break
+                        time.sleep(0.1)
+                except Exception as e:
+                    logger.error(f"Carousel loop error: {e}")
+                    time.sleep(2)
+        finally:
+            self._carousel_active = False
 
     def set_interval(self, interval_sec: int):
         self.settings['interval_sec'] = max(5, int(interval_sec))

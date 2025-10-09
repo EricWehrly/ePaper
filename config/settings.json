@@ -1,6 +1,6 @@
 {
-  "mode": "image",
-  "autoplay": false,
+  "mode": "carousel",
+  "autoplay": true,
   "interval_sec": 30,
   "orientation": "portrait"
 }
