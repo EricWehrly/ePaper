@@ -7,6 +7,7 @@
 
 import { refreshImages, refresh, scheduleNextRefresh } from './js/ui.js';
 import { setupEventHandlers, startCountdownTimer } from './js/events.js';
+import { setupDragDrop } from './js/dragdrop.js';
 
 /**
  * Initialize the application when DOM is loaded
@@ -23,4 +24,7 @@ window.addEventListener('load', () => {
   
   // Setup all event handlers
   setupEventHandlers();
+  
+  // Setup drag-and-drop functionality
+  setupDragDrop();
 });
