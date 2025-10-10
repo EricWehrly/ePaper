@@ -8,6 +8,7 @@ including image management, display control, and status monitoring.
 import logging
 import json
 from pathlib import Path
+from werkzeug.utils import secure_filename
 from flask import request, jsonify, current_app
 
 logger = logging.getLogger(__name__)
@@ -303,4 +304,96 @@ def register_routes(app):
             return jsonify({"success": True, "current_image": img})
         except Exception as e:
             logger.error(f"Prev image failed: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/upload', methods=['POST'])
+    def upload_files():
+        """Upload image files to pic-raw directory"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({"error": "Controller not initialized"}), 500
+            
+            # Check if files were uploaded
+            if 'files' not in request.files:
+                return jsonify({"error": "No files uploaded"}), 400
+            
+            files = request.files.getlist('files')
+            if not files or all(file.filename == '' for file in files):
+                return jsonify({"error": "No files selected"}), 400
+            
+            # Supported extensions
+            ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg'}
+            
+            uploaded_files = []
+            
+            for file in files:
+                if file.filename == '':
+                    continue
+                
+                # Check file extension
+                filename = file.filename.lower()
+                if not any(filename.endswith(ext) for ext in ALLOWED_EXTENSIONS):
+                    logger.warning(f"Unsupported file type: {file.filename}")
+                    continue
+                
+                # Secure the filename
+                safe_filename = secure_filename(file.filename)
+                if not safe_filename:
+                    logger.warning(f"Invalid filename: {file.filename}")
+                    continue
+                
+                # Save to pic-raw directory
+                file_path = controller.source_dir / safe_filename
+                
+                # Handle duplicate filenames by adding counter
+                counter = 1
+                original_path = file_path
+                while file_path.exists():
+                    name_parts = original_path.stem, counter, original_path.suffix
+                    file_path = original_path.parent / f"{name_parts[0]}_{name_parts[1]}{name_parts[2]}"
+                    counter += 1
+                
+                # Save the file
+                file.save(str(file_path))
+                uploaded_files.append({
+                    "filename": file_path.name,
+                    "path": str(file_path),
+                    "size": file_path.stat().st_size
+                })
+                
+                logger.info(f"Uploaded file: {file_path.name}")
+                
+                # Add to conversion queue
+                if controller.conversion_queue:
+                    queue_id = controller.conversion_queue.add_file(file_path)
+                    uploaded_files[-1]["queue_id"] = queue_id
+            
+            if not uploaded_files:
+                return jsonify({"error": "No valid image files uploaded"}), 400
+            
+            return jsonify({
+                "success": True,
+                "uploaded_files": uploaded_files,
+                "count": len(uploaded_files),
+                "message": f"Uploaded {len(uploaded_files)} file(s) and added to conversion queue"
+            })
+            
+        except Exception as e:
+            logger.error(f"File upload failed: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/queue/status', methods=['GET'])
+    def get_queue_status():
+        """Get conversion queue status"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller or not controller.conversion_queue:
+                return jsonify({"error": "Queue not initialized"}), 500
+            
+            status = controller.conversion_queue.get_status()
+            return jsonify(status)
+            
+        except Exception as e:
+            logger.error(f"Queue status failed: {e}")
             return jsonify({"error": str(e)}), 500

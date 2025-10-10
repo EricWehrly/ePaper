@@ -89,6 +89,9 @@ class ePaperController:
         # Display timing
         # TODO: 22 in "release" build, 2 in "demo / test" mode ...
         self.display_interval = 2.0  # seconds between images (standalone cycle)
+        
+        # Conversion queue
+        self.conversion_queue = None
 
     # ---------------- Settings Persistence ----------------
     def _load_settings(self):
@@ -252,6 +255,13 @@ class ePaperController:
         # Stop carousel if running
         if self._carousel_thread and self._carousel_thread.is_alive():
             self.stop_carousel()
+            
+        # Stop conversion queue
+        if self.conversion_queue:
+            try:
+                self.conversion_queue.stop_processing()
+            except Exception as e:
+                logger.error(f"Error stopping conversion queue: {e}")
             
         if self.display_manager:
             try:
@@ -471,6 +481,11 @@ class ePaperController:
             # Ensure directories exist
             filesystem.ensure_directory(self.source_dir)
             filesystem.ensure_directory(self.output_dir)
+            
+            # Initialize conversion queue
+            from src.convert.queue import ConversionQueue
+            self.conversion_queue = ConversionQueue(self)
+            self.conversion_queue.start_processing()
             
             # Initialize display (but don't fail if it's not available)
             display_initialized = self.initialize_display()
