@@ -323,7 +323,7 @@ def register_routes(app):
                 return jsonify({"error": "No files selected"}), 400
             
             # Supported extensions
-            ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg'}
+            ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tiff', '.tif'}
             
             uploaded_files = []
             

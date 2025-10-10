@@ -84,7 +84,7 @@ class ePaperController:
         self.output_dir = project_root / 'pic'
         
         # Supported image extensions
-        self.supported_extensions = {'.png', '.jpg', '.jpeg'}
+        self.supported_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tiff', '.tif'}
         
         # Display timing
         # TODO: 22 in "release" build, 2 in "demo / test" mode ...

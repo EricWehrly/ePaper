@@ -33,6 +33,7 @@ def convert_to_6color_with_dithering(image):
     return palette_indices
 
 
+# TODO: work on performance of this function
 def convert_image_to_6color_dithered(input_path, output_path):
     """
     Convert an image file to 6-color BMP format using Floyd-Steinberg dithering.

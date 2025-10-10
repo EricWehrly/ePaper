@@ -7,7 +7,7 @@ import { refreshImages } from './ui.js';
 /**
  * Supported image file extensions for drag-and-drop
  */
-const SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
+const SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tiff', '.tif'];
 
 /**
  * Check if a file has a supported image extension
@@ -20,20 +20,13 @@ function isSupportedImageFile(file) {
 }
 
 /**
- * Check if drag event contains supported image files
+ * Check if drag event contains files (actual type check happens on drop)
  * @param {DragEvent} e - Drag event
- * @returns {boolean} True if any files are supported images
+ * @returns {boolean} True if drag contains files
  */
-function hasSupportedFiles(e) {
+function hasFiles(e) {
   if (!e.dataTransfer) return false;
-  
-  // Check types array for image types
-  const types = Array.from(e.dataTransfer.types);
-  console.log('Drag types:', types);
-  
-  // If we have Files type, assume it might contain images
-  // We'll do the real check on drop
-  return types.includes('Files');
+  return Array.from(e.dataTransfer.types).includes('Files');
 }
 
 /**
@@ -56,16 +49,12 @@ function hideDropZone() {
  * Handle dragenter event
  */
 function handleDragEnter(e) {
-  console.log('dragenter event triggered');
   e.preventDefault();
   e.stopPropagation();
   
-  // Only show drop zone if dragging supported files
-  if (hasSupportedFiles(e)) {
-    console.log('Supported files detected, showing drop zone');
+  // Show drop zone if dragging files
+  if (hasFiles(e)) {
     showDropZone();
-  } else {
-    console.log('No supported files detected in drag');
   }
 }
 
@@ -73,12 +62,11 @@ function handleDragEnter(e) {
  * Handle dragover event
  */
 function handleDragOver(e) {
-  console.log('dragover event triggered');
   e.preventDefault();
   e.stopPropagation();
   
   // Set dropEffect for visual feedback
-  if (hasSupportedFiles(e)) {
+  if (hasFiles(e)) {
     e.dataTransfer.dropEffect = 'copy';
   } else {
     e.dataTransfer.dropEffect = 'none';
@@ -113,16 +101,21 @@ async function handleDrop(e) {
   const supportedFiles = files.filter(isSupportedImageFile);
   
   if (supportedFiles.length === 0) {
-    console.log('No supported image files dropped');
+    // TODO: Add toast notification system for better user feedback
+    console.log('⚠️ No supported image files detected. Supported formats: PNG, JPG, BMP, GIF, WebP, TIFF');
     return;
   }
   
-  console.log(`Uploading ${supportedFiles.length} image file(s)...`);
+  // TODO: Add loading spinner/progress indicator
+  console.log(`📤 Uploading ${supportedFiles.length} image file(s)...`);
   
   try {
     await uploadFiles(supportedFiles);
+    // TODO: Replace with toast notification
+    console.log(`✅ Successfully uploaded ${supportedFiles.length} file(s) - conversion started`);
   } catch (error) {
-    console.error('Upload failed:', error);
+    console.error('❌ Upload failed:', error);
+    // TODO: Replace with toast notification  
     alert('Upload failed: ' + error.message);
   }
 }
@@ -149,10 +142,10 @@ async function uploadFiles(files) {
   }
   
   const result = await response.json();
-  console.log('Upload successful:', result);
+  console.log('📁 Files saved to pic-raw/, queued for conversion:', result.uploaded_files.map(f => f.filename));
   
-  // Refresh the images list after upload
-  setTimeout(refreshImages, 300);
+  // Refresh the images list after upload to show any completed conversions
+  setTimeout(refreshImages, 500);
   
   // TODO: In Phase 2, we'll add queue monitoring here
   // For now, just show success message
@@ -170,14 +163,6 @@ export function setupDragDrop() {
     return;
   }
   
-  console.log('Setting up drag-and-drop on displayBox:', displayBox);
-  
-  // Add temporary test indicator
-  displayBox.style.border = '2px solid red';
-  setTimeout(() => {
-    displayBox.style.border = '';
-  }, 2000);
-  
   // Prevent default drag behavior on document to enable custom drop zones
   document.addEventListener('dragover', (e) => e.preventDefault());
   document.addEventListener('drop', (e) => e.preventDefault());
@@ -188,5 +173,5 @@ export function setupDragDrop() {
   displayBox.addEventListener('dragleave', handleDragLeave);
   displayBox.addEventListener('drop', handleDrop);
   
-  console.log('Drag-and-drop functionality initialized successfully');
+  // Drag-and-drop ready
 }

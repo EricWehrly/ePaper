@@ -225,13 +225,17 @@ class ConversionQueue:
                 return False
             
             # Use the existing convert module
-            from src.convert.core import convert_image
+            from src.convert.core import convert_image_to_6color_dithered
             
             # Perform conversion
-            convert_image(
+            success = convert_image_to_6color_dithered(
                 input_path=item.source_path,
                 output_path=item.output_path
             )
+            
+            if not success:
+                item.error = "Conversion function returned False"
+                return False
             
             # Verify output file was created
             if not item.output_path.exists():
