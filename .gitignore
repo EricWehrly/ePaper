@@ -9,4 +9,4 @@ pic-raw
 # Test outputs
 test/outputs/
 
-config/state.json
+config/*.json
