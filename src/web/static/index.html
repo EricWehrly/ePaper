@@ -61,6 +61,14 @@
       </div>
     </div>
   </div>
-  <script src="/static/app.js?v=9"></script>
+  <script>
+    // Minimal module loader with performance.now() cache-buster
+    (function(){
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = '/static/app.js?v=' + Math.floor(performance.now());
+      document.head.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
