@@ -24,6 +24,17 @@ def register_routes(app):
             if not controller:
                 return jsonify({"error": "Controller not initialized"}), 500
                 
+            # Count available images
+            source_count = 0
+            converted_count = 0
+            
+            if controller.source_dir.exists():
+                for ext in controller.supported_extensions:
+                    source_count += len(list(controller.source_dir.glob(f"*{ext}")))
+            
+            if controller.output_dir.exists():
+                converted_count = len(list(controller.output_dir.glob("*.bmp")))
+            
             return jsonify({
                 "status": "running" if controller.running else "stopped",
                 "display_initialized": controller.display_manager is not None,
@@ -34,7 +45,11 @@ def register_routes(app):
                 "busy": controller.is_busy(),
                 "carousel_active": getattr(controller, '_carousel_active', False),
                 "last_display_completion": getattr(controller, '_last_display_completion', None),
-                "settings": controller.settings
+                "settings": controller.settings,
+                "image_counts": {
+                    "source": source_count,
+                    "converted": converted_count
+                }
             })
         except Exception as e:
             logger.error(f"Status check failed: {e}")

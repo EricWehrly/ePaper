@@ -11,7 +11,11 @@ export const state = {
   busy: false,
   carouselActive: false,
   lastDisplayCompletion: null,
-  countdownInterval: null
+  countdownInterval: null,
+  imageCounts: {
+    source: 0,
+    converted: 0
+  }
 };
 
 /**

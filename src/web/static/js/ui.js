@@ -27,13 +27,28 @@ export async function refresh() {
       placeholder.style.display = '';
     }
 
+    // Check if image counts have changed
+    const previousCounts = state.imageCounts;
+    const newCounts = status.image_counts || { source: 0, converted: 0 };
+    const countsChanged = (
+      previousCounts.source !== newCounts.source || 
+      previousCounts.converted !== newCounts.converted
+    );
+
     // Update state from status (but store previous busy state first)
     const previousBusyState = state.busy;
     updateState({
       settings: status.settings || state.settings,
       busy: status.busy,
-      carouselActive: status.carousel_active || false
+      carouselActive: status.carousel_active || false,
+      imageCounts: newCounts
     });
+    
+    // Auto-refresh images if counts changed
+    if (countsChanged) {
+      console.log(`📊 Image count changed: ${previousCounts.converted} → ${newCounts.converted} converted images`);
+      setTimeout(refreshImages, 100);
+    }
     
     // Update UI controls based on status
     updateControlsFromStatus(status, previousBusyState);

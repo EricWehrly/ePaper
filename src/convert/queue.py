@@ -94,6 +94,9 @@ class ConversionQueue:
                         
                 self._queue = items
                 logger.info(f"Loaded {len(items)} items from queue")
+                
+                # Retry all failed conversions on startup
+                self._retry_failed_on_startup()
         except Exception as e:
             logger.warning(f"Failed to load queue: {e}")
     
@@ -114,6 +117,22 @@ class ConversionQueue:
                 
         except Exception as e:
             logger.warning(f"Failed to save queue: {e}")
+    
+    def _retry_failed_on_startup(self):
+        """Retry all failed conversions on startup"""
+        failed_items = []
+        with self._lock:
+            for item in self._queue:
+                if item.status == QueueStatus.FAILED:
+                    failed_items.append(item)
+        
+        if failed_items:
+            logger.info(f"Retrying {len(failed_items)} failed conversions from previous session")
+            with self._lock:
+                for item in failed_items:
+                    item.status = QueueStatus.PENDING
+                    item.error = None  # Clear previous error
+                self._save_queue()
     
     def add_file(self, source_path: Path) -> str:
         """Add a file to the conversion queue"""
@@ -206,6 +225,21 @@ class ConversionQueue:
                     if success:
                         next_item.status = QueueStatus.COMPLETED
                         logger.info(f"Converted {next_item.filename} successfully")
+                        
+                        # Remove completed item from queue after short delay
+                        # (gives time for any UI to see the completed status)
+                        def remove_completed():
+                            time.sleep(2)  # 2 second delay
+                            with self._lock:
+                                try:
+                                    self._queue.remove(next_item)
+                                    self._save_queue()
+                                    logger.info(f"Removed completed item {next_item.filename} from queue")
+                                except ValueError:
+                                    pass  # Item already removed
+                        
+                        # Run removal in separate thread to avoid blocking worker
+                        threading.Thread(target=remove_completed, daemon=True).start()
                     else:
                         next_item.status = QueueStatus.FAILED
                         logger.error(f"Failed to convert {next_item.filename}")
