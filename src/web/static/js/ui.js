@@ -2,29 +2,30 @@
  * UI refresh and update logic
  */
 
-import { fetchJson, el } from './utils.js';
+import { el } from './utils.js';
 import { state, updateState } from './state.js';
 import { setBusyState, displayImage } from './display.js';
+import { apiGet, API_CONFIG } from './api.js';
+import { getElement, setText, setAttribute, setVisible, toggleClass } from './dom.js';
 
 /**
  * Refresh status from server and update UI
  */
 export async function refresh() {
   try {
-    const status = await fetchJson('/api/status');
+    const status = await apiGet(API_CONFIG.ENDPOINTS.STATUS);
     
     // Update current image display
     const current = status.current_image || null;
-    const imgEl = document.getElementById('currentImage');
-    const placeholder = document.getElementById('placeholder');
-    if (current) {
+    const imgEl = getElement('CURRENT_IMAGE');
+    if (current && imgEl) {
       imgEl.src = '/static_image?path=' + encodeURIComponent(current);
-      imgEl.style.display = '';
-      placeholder.style.display = 'none';
+      setVisible('CURRENT_IMAGE', true);
+      setVisible('PLACEHOLDER', false);
     } else {
-      imgEl.src = '';
-      imgEl.style.display = 'none';
-      placeholder.style.display = '';
+      if (imgEl) imgEl.src = '';
+      setVisible('CURRENT_IMAGE', false);
+      setVisible('PLACEHOLDER', true);
     }
 
     // Check if image counts have changed
@@ -63,8 +64,8 @@ export async function refresh() {
  */
 export async function refreshImages() {
   try {
-    const images = await fetchJson('/api/images');
-    const list = document.getElementById('thumbList');
+    const images = await apiGet(API_CONFIG.ENDPOINTS.IMAGES);
+    const list = getElement('THUMBS_LIST');
     
     // Only show converted images for now
     const all = images.converted_images || [];
@@ -130,24 +131,26 @@ export async function refreshImages() {
  * Update countdown display
  */
 export function updateCountdown() {
-  const countdownEl = document.getElementById('nextImageCountdown');
+  const countdownEl = getElement('COUNTDOWN');
   const isCarouselMode = state.settings.mode === 'carousel';
   const carouselActive = state.carouselActive;
   
+  if (!countdownEl) return;
+  
   if (!isCarouselMode || !carouselActive || !state.lastDisplayCompletion) {
-    countdownEl.textContent = '--';
-    countdownEl.classList.add('disabled');
+    setText('COUNTDOWN', '--');
+    toggleClass('COUNTDOWN', 'disabled', true);
     return;
   }
   
-  countdownEl.classList.remove('disabled');
+  toggleClass('COUNTDOWN', 'disabled', false);
   const intervalMs = (state.settings.interval_sec || 30) * 1000;
   const completionTime = state.lastDisplayCompletion * 1000; // Convert to milliseconds
   const elapsed = Date.now() - completionTime;
   const remaining = Math.max(0, intervalMs - elapsed);
   const secondsLeft = Math.ceil(remaining / 1000);
   
-  countdownEl.textContent = secondsLeft + 's';
+  setText('COUNTDOWN', secondsLeft + 's');
 }
 
 /**
@@ -168,34 +171,32 @@ export function updateControlsFromStatus(status, previousBusyState) {
   }
   
   // Update UI controls to reflect current settings
-  document.getElementById('modeImageBtn').setAttribute('aria-pressed', mode === 'image');
-  document.getElementById('modeCarouselBtn').setAttribute('aria-pressed', mode === 'carousel');
-  const autoplayBtn = document.getElementById('autoplayToggle');
-  autoplayBtn.textContent = 'Autoplay: ' + (autoplay ? 'On' : 'Off');
-  autoplayBtn.dataset.playing = autoplay ? 'true' : 'false';
-  document.getElementById('intervalInput').value = intervalSec;
-  document.getElementById('orientationSelect').value = orientation;
+  setAttribute('MODE_IMAGE_BTN', 'aria-pressed', mode === 'image');
+  setAttribute('MODE_CAROUSEL_BTN', 'aria-pressed', mode === 'carousel');
+  
+  const autoplayBtn = getElement('AUTOPLAY_TOGGLE');
+  if (autoplayBtn) {
+    autoplayBtn.textContent = 'Autoplay: ' + (autoplay ? 'On' : 'Off');
+    autoplayBtn.dataset.playing = autoplay ? 'true' : 'false';
+  }
+  
+  const intervalInput = getElement('INTERVAL_INPUT');
+  if (intervalInput) intervalInput.value = intervalSec;
+  
+  const orientationSelect = getElement('ORIENTATION_SELECT');
+  if (orientationSelect) orientationSelect.value = orientation;
   
   // Handle natural disabled states using CSS classes
   const hasImages = state.convertedImages.length > 0;
   const isCarouselMode = mode === 'carousel';
   
   // Navigation buttons disabled when no images
-  ['prevBtn', 'nextBtn'].forEach(id => {
-    const elRef = document.getElementById(id);
-    if (hasImages) {
-      elRef.classList.remove('disabled');
-    } else {
-      elRef.classList.add('disabled');
-    }
-  });
+  toggleClass('PREV_BTN', 'disabled', !hasImages);
+  toggleClass('NEXT_BTN', 'disabled', !hasImages);
   
   // Autoplay toggle only works in carousel mode
-  if (isCarouselMode && hasImages) {
-    autoplayBtn.classList.remove('disabled');
-  } else {
-    autoplayBtn.classList.add('disabled');
-  }
+  const shouldEnableAutoplay = isCarouselMode && hasImages;
+  toggleClass('AUTOPLAY_TOGGLE', 'disabled', !shouldEnableAutoplay);
   
   // Handle busy state from server - this is the key state management
   const shouldShowBusy = status.busy;

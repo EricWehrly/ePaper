@@ -2,22 +2,9 @@
  * Drag-and-drop file upload functionality for ePaper interface
  */
 
-import { refreshImages, addPendingUploadPlaceholders, removePendingUploadPlaceholder } from './ui.js';
-
-/**
- * Supported image file extensions for drag-and-drop
- */
-const SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tiff', '.tif'];
-
-/**
- * Check if a file has a supported image extension
- * @param {File} file - File object to check
- * @returns {boolean} True if file type is supported
- */
-function isSupportedImageFile(file) {
-  const fileName = file.name.toLowerCase();
-  return SUPPORTED_EXTENSIONS.some(ext => fileName.endsWith(ext));
-}
+import { refreshImages, addPendingUploadPlaceholders } from './ui.js';
+import { apiUpload, API_CONFIG, isSupportedImageFile } from './api.js';
+import { getElement, toggleClass } from './dom.js';
 
 /**
  * Check if drag event contains files (actual type check happens on drop)
@@ -33,16 +20,14 @@ function hasFiles(e) {
  * Show the drop zone overlay
  */
 function showDropZone() {
-  const displayBox = document.getElementById('displayBox');
-  displayBox.classList.add('drag-over');
+  toggleClass('DISPLAY_BOX', 'drag-over', true);
 }
 
 /**
  * Hide the drop zone overlay
  */
 function hideDropZone() {
-  const displayBox = document.getElementById('displayBox');
-  displayBox.classList.remove('drag-over');
+  toggleClass('DISPLAY_BOX', 'drag-over', false);
 }
 
 /**
@@ -82,7 +67,7 @@ function handleDragLeave(e) {
   
   // Only hide if leaving the displayBox entirely
   // Check if the related target is outside displayBox
-  const displayBox = document.getElementById('displayBox');
+  const displayBox = getElement('DISPLAY_BOX');
   if (!displayBox.contains(e.relatedTarget)) {
     hideDropZone();
   }
@@ -102,7 +87,7 @@ async function handleDrop(e) {
   
   if (supportedFiles.length === 0) {
     // TODO: Add toast notification system for better user feedback
-    console.log('⚠️ No supported image files detected. Supported formats: PNG, JPG, BMP, GIF, WebP, TIFF');
+    console.log(`⚠️ No supported image files detected. Supported formats: ${API_CONFIG.SUPPORTED_EXTENSIONS.join(', ')}`);
     return;
   }
   
@@ -111,12 +96,10 @@ async function handleDrop(e) {
   
   try {
     await uploadFiles(supportedFiles);
-    // TODO: Replace with toast notification
     console.log(`✅ Successfully uploaded ${supportedFiles.length} file(s) - conversion started`);
   } catch (error) {
+    // Error handling is now centralized in apiUpload
     console.error('❌ Upload failed:', error);
-    // TODO: Replace with toast notification  
-    alert('Upload failed: ' + error.message);
   }
 }
 
@@ -127,31 +110,17 @@ async function handleDrop(e) {
 async function uploadFiles(files) {
   const formData = new FormData();
   
-  files.forEach((file, index) => {
+  files.forEach(file => {
     formData.append('files', file);
   });
   
-  const response = await fetch('/api/upload', {
-    method: 'POST',
-    body: formData
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP ${response.status}`);
-  }
-  
-  const result = await response.json();
+  const result = await apiUpload(API_CONFIG.ENDPOINTS.UPLOAD, formData);
   console.log('📁 Files saved to pic-raw/, queued for conversion:', result.uploaded_files.map(f => f.filename));
   
   // Add placeholder thumbnails for uploaded files
   addPendingUploadPlaceholders(result.uploaded_files);
   
-  // Refresh the images list after upload to show any completed conversions
-  setTimeout(refreshImages, 500);
-  
-  // TODO: In Phase 2, we'll add queue monitoring here
-  // For now, just show success message
+  // Refresh handled automatically by apiUpload
   console.log(`${result.count} files queued for conversion`);
 }
 
@@ -159,7 +128,7 @@ async function uploadFiles(files) {
  * Setup drag-and-drop functionality
  */
 export function setupDragDrop() {
-  const displayBox = document.getElementById('displayBox');
+  const displayBox = getElement('DISPLAY_BOX');
   
   if (!displayBox) {
     console.error('displayBox element not found');

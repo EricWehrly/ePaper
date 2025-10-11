@@ -5,114 +5,83 @@
 import { state, updateState } from './state.js';
 import { clearDisplay, displayImage, setBusyState } from './display.js';
 import { refresh, updateCountdown } from './ui.js';
+import { apiPost, API_CONFIG } from './api.js';
+import { getElement } from './dom.js';
 
 /**
  * Setup all event handlers for the application
  */
 export function setupEventHandlers() {
   // Clear display button
-  document.getElementById('clearBtn').addEventListener('click', () => {
+  getElement('CLEAR_BTN').addEventListener('click', () => {
     clearDisplay();
   });
 
   // Mode buttons
-  document.getElementById('modeImageBtn').addEventListener('click', async () => {
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'image' })
-    });
-    refresh();
+  getElement('MODE_IMAGE_BTN').addEventListener('click', async () => {
+    await apiPost(API_CONFIG.ENDPOINTS.SETTINGS, { mode: 'image' });
   });
 
-  document.getElementById('modeCarouselBtn').addEventListener('click', async () => {
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'carousel' })
-    });
-    refresh();
+  getElement('MODE_CAROUSEL_BTN').addEventListener('click', async () => {
+    await apiPost(API_CONFIG.ENDPOINTS.SETTINGS, { mode: 'carousel' });
   });
 
   // Navigation - Next button
-  document.getElementById('nextBtn').addEventListener('click', async (e) => {
+  getElement('NEXT_BTN').addEventListener('click', async (e) => {
     // Don't do anything if button is disabled
     if (e.target.classList.contains('disabled')) return;
     
     setBusyState(true, null, 'Loading next image...');
     try {
-      const res = await fetch('/api/display/next', { method: 'POST' });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        if (res.status === 409) return; // Already busy
-        throw new Error(errorData.error || 'next failed');
-      }
+      await apiPost(API_CONFIG.ENDPOINTS.DISPLAY.NEXT, {}, false); // Don't auto-refresh
     } catch (e) {
-      console.error(e);
-      alert('Failed to go to next image: ' + e.message);
+      if (e.message !== 'busy') {
+        console.error('Next image failed:', e);
+      }
     } finally {
       setBusyState(false);
-      setTimeout(refresh, 300);
+      setTimeout(refresh, API_CONFIG.REFRESH_DELAY);
     }
   });
 
   // Navigation - Previous button
-  document.getElementById('prevBtn').addEventListener('click', async (e) => {
+  getElement('PREV_BTN').addEventListener('click', async (e) => {
     // Don't do anything if button is disabled
     if (e.target.classList.contains('disabled')) return;
     
     setBusyState(true, null, 'Loading previous image...');
     try {
-      const res = await fetch('/api/display/prev', { method: 'POST' });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        if (res.status === 409) return; // Already busy
-        throw new Error(errorData.error || 'prev failed');
-      }
+      await apiPost(API_CONFIG.ENDPOINTS.DISPLAY.PREV, {}, false); // Don't auto-refresh
     } catch (e) {
-      console.error(e);
-      alert('Failed to go to previous image: ' + e.message);
+      if (e.message !== 'busy') {
+        console.error('Previous image failed:', e);
+      }
     } finally {
       setBusyState(false);
-      setTimeout(refresh, 300);
+      setTimeout(refresh, API_CONFIG.REFRESH_DELAY);
     }
   });
 
   // Autoplay toggle
-  document.getElementById('autoplayToggle').addEventListener('click', async (e) => {
+  getElement('AUTOPLAY_TOGGLE').addEventListener('click', async (e) => {
     // Don't do anything if button is disabled
     if (e.target.classList.contains('disabled')) return;
-    const playing = document.getElementById('autoplayToggle').dataset.playing === 'true';
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ autoplay: !playing })
-    });
-    setTimeout(refresh, 300);
+    const playing = getElement('AUTOPLAY_TOGGLE').dataset.playing === 'true';
+    await apiPost(API_CONFIG.ENDPOINTS.SETTINGS, { autoplay: !playing });
   });
 
   // Interval change
-  document.getElementById('intervalInput').addEventListener('change', async (e) => {
+  getElement('INTERVAL_INPUT').addEventListener('change', async (e) => {
     const v = parseInt(e.target.value, 10);
     if (!isNaN(v) && v >= 5) {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interval_sec: v })
-      });
-      setTimeout(refresh, 200);
+      await apiPost(API_CONFIG.ENDPOINTS.SETTINGS, { interval_sec: v });
     }
   });
 
   // Orientation change
-  document.getElementById('orientationSelect').addEventListener('change', async (e) => {
+  getElement('ORIENTATION_SELECT').addEventListener('change', async (e) => {
     const orientation = e.target.value;
-    await fetch('/api/display/orientation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orientation })
-    });
-    setTimeout(refresh, 500);
+    await apiPost(API_CONFIG.ENDPOINTS.DISPLAY.ORIENTATION, { orientation }, true, 500);
   });
 }
 

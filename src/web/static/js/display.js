@@ -4,6 +4,8 @@
 
 import { state } from './state.js';
 import { refresh } from './ui.js';
+import { apiPost, API_CONFIG } from './api.js';
+import { getElement, toggleClass, setVisible } from './dom.js';
 
 /**
  * Set the busy state of the display
@@ -12,31 +14,31 @@ import { refresh } from './ui.js';
  * @param {string} statusText - Status text to display (optional)
  */
 export function setBusyState(busy, incomingImagePath = null, statusText = '') {
-  const container = document.querySelector('.container');
-  const displayBox = document.getElementById('displayBox');
-  const overlay = document.getElementById('previewOverlay');
-  const statusEl = document.getElementById('previewStatus');
-  const currentImage = document.getElementById('currentImage');
+  const container = getElement('CONTAINER');
+  const displayBox = getElement('DISPLAY_BOX');
+  const overlay = getElement('PREVIEW_OVERLAY');
+  const statusEl = getElement('PREVIEW_STATUS');
+  const currentImage = getElement('CURRENT_IMAGE');
   
   if (busy) {
     // Add busy class to container - CSS will handle all disabled states
-    container.classList.add('display-busy');
-    displayBox.classList.add('display-busy');
-    overlay.style.display = 'block';
-    statusEl.textContent = statusText;
+    toggleClass('CONTAINER', 'display-busy', true);
+    toggleClass('DISPLAY_BOX', 'display-busy', true);
+    setVisible('PREVIEW_OVERLAY', true);
+    if (statusEl) statusEl.textContent = statusText;
     
     // Show incoming image if provided
-    if (incomingImagePath) {
+    if (incomingImagePath && currentImage) {
       currentImage.src = '/static_image?path=' + encodeURIComponent(incomingImagePath);
-      currentImage.style.display = '';
-      document.getElementById('placeholder').style.display = 'none';
+      setVisible('CURRENT_IMAGE', true);
+      setVisible('PLACEHOLDER', false);
     }
   } else {
     // Remove busy class from container - CSS will re-enable controls
-    container.classList.remove('display-busy');
-    displayBox.classList.remove('display-busy');
-    overlay.style.display = 'none';
-    statusEl.textContent = '';
+    toggleClass('CONTAINER', 'display-busy', false);
+    toggleClass('DISPLAY_BOX', 'display-busy', false);
+    setVisible('PREVIEW_OVERLAY', false);
+    if (statusEl) statusEl.textContent = '';
   }
 }
 
@@ -48,25 +50,14 @@ export function setBusyState(busy, incomingImagePath = null, statusText = '') {
 export async function displayImage(path, statusText = 'Applying image...') {
   setBusyState(true, path, statusText);
   try {
-    const res = await fetch('/api/display/image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image_path: path })
-    });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      if (res.status === 409) {
-        // Display is busy, don't change UI state
-        return;
-      }
-      throw new Error(errorData.error || 'display failed');
-    }
+    await apiPost(API_CONFIG.ENDPOINTS.DISPLAY.IMAGE, { image_path: path }, false);
   } catch (e) {
-    console.error(e);
-    alert('Failed to display image: ' + e.message);
+    if (e.message !== 'busy') {
+      console.error('Display image failed:', e);
+    }
   } finally {
     setBusyState(false);
-    setTimeout(refresh, 300);
+    setTimeout(refresh, API_CONFIG.REFRESH_DELAY);
   }
 }
 
@@ -76,17 +67,13 @@ export async function displayImage(path, statusText = 'Applying image...') {
 export async function clearDisplay() {
   setBusyState(true, null, 'Clearing display...');
   try {
-    const res = await fetch('/api/display/clear', { method: 'POST' });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      if (res.status === 409) return; // Already busy
-      throw new Error(errorData.error || 'clear failed');
-    }
+    await apiPost(API_CONFIG.ENDPOINTS.DISPLAY.CLEAR, {}, false);
   } catch (e) {
-    console.error(e);
-    alert('Failed to clear display: ' + e.message);
+    if (e.message !== 'busy') {
+      console.error('Clear display failed:', e);
+    }
   } finally {
     setBusyState(false);
-    setTimeout(refresh, 300);
+    setTimeout(refresh, API_CONFIG.REFRESH_DELAY);
   }
 }

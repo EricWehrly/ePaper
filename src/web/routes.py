@@ -6,10 +6,15 @@ including image management, display control, and status monitoring.
 """
 
 import logging
-import json
 from pathlib import Path
 from werkzeug.utils import secure_filename
 from flask import request, jsonify, current_app
+
+from .api_utils import (
+    api_route, create_success_response, create_error_response,
+    validate_image_file, count_files_by_extension, get_controller,
+    safe_int, SUPPORTED_IMAGE_EXTENSIONS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,108 +22,79 @@ def register_routes(app):
     """Register all API routes with the Flask app"""
     
     @app.route('/api/status', methods=['GET'])
+    @api_route(require_controller=True)
     def get_status():
         """Get current system status"""
-        try:
-            controller = current_app.epaper_controller
-            if not controller:
-                return jsonify({"error": "Controller not initialized"}), 500
-                
-            # Count available images
-            source_count = 0
-            converted_count = 0
-            
-            if controller.source_dir.exists():
-                for ext in controller.supported_extensions:
-                    source_count += len(list(controller.source_dir.glob(f"*{ext}")))
-            
-            if controller.output_dir.exists():
-                converted_count = len(list(controller.output_dir.glob("*.bmp")))
-            
-            return jsonify({
-                "status": "running" if controller.running else "stopped",
-                "display_initialized": controller.display_manager is not None,
-                "source_dir": str(controller.source_dir),
-                "output_dir": str(controller.output_dir),
-                "display_interval": controller.display_interval,
-                "current_image": controller.current_image,
-                "busy": controller.is_busy(),
-                "carousel_active": getattr(controller, '_carousel_active', False),
-                "last_display_completion": getattr(controller, '_last_display_completion', None),
-                "settings": controller.settings,
-                "image_counts": {
-                    "source": source_count,
-                    "converted": converted_count
-                }
-            })
-        except Exception as e:
-            logger.error(f"Status check failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        controller = get_controller()
+        
+        # Count available images using utility function
+        source_count = count_files_by_extension(controller.source_dir, SUPPORTED_IMAGE_EXTENSIONS)
+        converted_count = count_files_by_extension(controller.output_dir, {'.bmp'})
+        
+        return jsonify({
+            "status": "running" if controller.running else "stopped",
+            "display_initialized": controller.display_manager is not None,
+            "source_dir": str(controller.source_dir),
+            "output_dir": str(controller.output_dir),
+            "display_interval": controller.display_interval,
+            "current_image": controller.current_image,
+            "busy": controller.is_busy(),
+            "carousel_active": getattr(controller, '_carousel_active', False),
+            "last_display_completion": getattr(controller, '_last_display_completion', None),
+            "settings": controller.settings,
+            "image_counts": {
+                "source": source_count,
+                "converted": converted_count
+            }
+        })
     
     @app.route('/api/images', methods=['GET'])
+    @api_route(require_controller=True)
     def list_images():
         """List available images in pic-raw and pic directories"""
-        try:
-            controller = current_app.epaper_controller
-            if not controller:
-                return jsonify({"error": "Controller not initialized"}), 500
-                
-            # Get source images
-            source_images = []
-            if controller.source_dir.exists():
-                for ext in controller.supported_extensions:
-                    source_images.extend([
-                        {"name": f.name, "path": str(f), "type": "source"}
-                        for f in controller.source_dir.glob(f"*{ext}")
-                    ])
+        controller = get_controller()
             
-            # Get converted images
-            converted_images = []
-            if controller.output_dir.exists():
-                converted_images = [
-                    {"name": f.name, "path": str(f), "type": "converted"}
-                    for f in controller.output_dir.glob("*.bmp")
-                ]
-                
-            return jsonify({
-                "source_images": source_images,
-                "converted_images": converted_images,
-                "total_source": len(source_images),
-                "total_converted": len(converted_images)
-            })
-        except Exception as e:
-            logger.error(f"Image listing failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        # Get source images using supported extensions
+        source_images = []
+        if controller.source_dir.exists():
+            for ext in SUPPORTED_IMAGE_EXTENSIONS:
+                source_images.extend([
+                    {"name": f.name, "path": str(f), "type": "source"}
+                    for f in controller.source_dir.glob(f"*{ext}")
+                ])
+        
+        # Get converted images
+        converted_images = []
+        if controller.output_dir.exists():
+            converted_images = [
+                {"name": f.name, "path": str(f), "type": "converted"}
+                for f in controller.output_dir.glob("*.bmp")
+            ]
+            
+        return jsonify({
+            "source_images": source_images,
+            "converted_images": converted_images,
+            "total_source": len(source_images),
+            "total_converted": len(converted_images)
+        })
     
     @app.route('/api/display/image', methods=['POST'])
+    @api_route(require_controller=True, require_display=True)
     def display_image():
         """Display a specific image on the ePaper display"""
-        try:
-            controller = current_app.epaper_controller
-            if not controller:
-                return jsonify({"error": "Controller not initialized"}), 500
-                
-            if not controller.display_manager:
-                return jsonify({"error": "Display not initialized"}), 500
-
-            if controller.is_busy():
-                return jsonify({"error": "Display busy"}), 409
-                
-            data = request.get_json()
-            if not data or 'image_path' not in data:
-                return jsonify({"error": "image_path required"}), 400
-                
-            image_path = Path(data['image_path'])
-            if not image_path.exists():
-                return jsonify({"error": "Image file not found"}), 404
-                
-            # Use controller helper so current_image is tracked
-            controller.show_image(str(image_path))
-            return jsonify({"success": True, "displayed_image": str(image_path)})
+        controller = get_controller()
+        
+        data = request.get_json()
+        if not data or 'image_path' not in data:
+            return create_error_response("image_path required", 400)
             
-        except Exception as e:
-            logger.error(f"Display image failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        image_path = Path(data['image_path'])
+        if not image_path.exists():
+            return create_error_response("Image file not found", 404)
+            
+        # Use controller helper so current_image is tracked
+        controller.show_image(str(image_path))
+        return create_success_response({"displayed_image": str(image_path)})
     
     @app.route('/api/display/cycle', methods=['POST'])
     def start_display_cycle():
@@ -209,25 +185,12 @@ def register_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/api/display/clear', methods=['POST'])
+    @api_route(require_controller=True, require_display=True)
     def clear_display_route():
         """Clear the e-paper display to white (alias of blank)"""
-        try:
-            controller = current_app.epaper_controller
-            if not controller:
-                return jsonify({"error": "Controller not initialized"}), 500
-
-            if not controller.display_manager:
-                return jsonify({"error": "Display not initialized"}), 500
-
-            if controller.is_busy():
-                return jsonify({"error": "Display busy"}), 409
-
-            controller.clear_display()
-            return jsonify({"success": True})
-
-        except Exception as e:
-            logger.error(f"Clear display failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        controller = get_controller()
+        controller.clear_display()
+        return create_success_response()
 
     @app.route('/api/display/orientation', methods=['POST'])
     def set_orientation():
@@ -261,142 +224,117 @@ def register_routes(app):
 
     # ------------- Settings Endpoints -------------
     @app.route('/api/settings', methods=['GET','POST'])
+    @api_route(require_controller=True)
     def settings_handler():
-        try:
-            controller = current_app.epaper_controller
-            if not controller:
-                return jsonify({"error": "Controller not initialized"}), 500
-            if request.method == 'GET':
-                return jsonify(controller.settings)
-            data = request.get_json(force=True, silent=True) or {}
-            # Update interval
-            if 'interval_sec' in data:
-                try:
-                    controller.set_interval(int(data['interval_sec']))
-                except Exception as e:
-                    return jsonify({"error": f"invalid interval: {e}"}), 400
-            # Update mode / autoplay
-            if 'mode' in data:
-                controller.set_mode(data['mode'])
-            if 'autoplay' in data:
-                if data['autoplay']:
-                    controller.start_carousel()
-                else:
-                    controller.stop_carousel()
-            return jsonify({"success": True, "settings": controller.settings})
-        except Exception as e:
-            logger.error(f"Settings update failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        """Handle settings GET and POST operations"""
+        controller = get_controller()
+        
+        if request.method == 'GET':
+            return jsonify(controller.settings)
+        
+        data = request.get_json(force=True, silent=True) or {}
+        
+        # Update interval with validation
+        if 'interval_sec' in data:
+            interval = safe_int(data['interval_sec'], minimum=5)
+            if interval is None:
+                return create_error_response("invalid interval: must be integer >= 5", 400)
+            controller.set_interval(interval)
+        
+        # Update mode / autoplay
+        if 'mode' in data:
+            controller.set_mode(data['mode'])
+        if 'autoplay' in data:
+            if data['autoplay']:
+                controller.start_carousel()
+            else:
+                controller.stop_carousel()
+        
+        return create_success_response({"settings": controller.settings})
 
     # ------------- Navigation Endpoints -------------
     @app.route('/api/display/next', methods=['POST'])
+    @api_route(require_controller=True, require_display=True)
     def api_next_image():
-        try:
-            controller = current_app.epaper_controller
-            if not controller or not controller.display_manager:
-                return jsonify({"error": "Display not initialized"}), 500
-            if controller.is_busy():
-                return jsonify({"error": "Display busy"}), 409
-            img = controller.next_image()
-            if not img:
-                return jsonify({"error": "No images"}), 400
-            return jsonify({"success": True, "current_image": img})
-        except Exception as e:
-            logger.error(f"Next image failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        """Navigate to next image in sequence"""
+        controller = get_controller()
+        img = controller.next_image()
+        if not img:
+            return create_error_response("No images", 400)
+        return create_success_response({"current_image": img})
 
     @app.route('/api/display/prev', methods=['POST'])
+    @api_route(require_controller=True, require_display=True)
     def api_prev_image():
-        try:
-            controller = current_app.epaper_controller
-            if not controller or not controller.display_manager:
-                return jsonify({"error": "Display not initialized"}), 500
-            if controller.is_busy():
-                return jsonify({"error": "Display busy"}), 409
-            img = controller.prev_image()
-            if not img:
-                return jsonify({"error": "No images"}), 400
-            return jsonify({"success": True, "current_image": img})
-        except Exception as e:
-            logger.error(f"Prev image failed: {e}")
-            return jsonify({"error": str(e)}), 500
+        """Navigate to previous image in sequence"""
+        controller = get_controller()
+        img = controller.prev_image()
+        if not img:
+            return create_error_response("No images", 400)
+        return create_success_response({"current_image": img})
 
     @app.route('/api/upload', methods=['POST'])
+    @api_route(require_controller=True)
     def upload_files():
         """Upload image files to pic-raw directory"""
-        try:
-            controller = current_app.epaper_controller
-            if not controller:
-                return jsonify({"error": "Controller not initialized"}), 500
+        controller = get_controller()
+        
+        # Check if files were uploaded
+        if 'files' not in request.files:
+            return create_error_response("No files uploaded", 400)
+        
+        files = request.files.getlist('files')
+        if not files or all(file.filename == '' for file in files):
+            return create_error_response("No files selected", 400)
+        
+        uploaded_files = []
+        
+        for file in files:
+            if file.filename == '':
+                continue
             
-            # Check if files were uploaded
-            if 'files' not in request.files:
-                return jsonify({"error": "No files uploaded"}), 400
+            # Validate file extension using utility
+            if not validate_image_file(file.filename):
+                logger.warning(f"Unsupported file type: {file.filename}")
+                continue
             
-            files = request.files.getlist('files')
-            if not files or all(file.filename == '' for file in files):
-                return jsonify({"error": "No files selected"}), 400
+            # Secure the filename
+            safe_filename = secure_filename(file.filename)
+            if not safe_filename:
+                logger.warning(f"Invalid filename: {file.filename}")
+                continue
             
-            # Supported extensions
-            ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tiff', '.tif'}
+            # Save to pic-raw directory with duplicate handling
+            file_path = controller.source_dir / safe_filename
+            counter = 1
+            original_path = file_path
+            while file_path.exists():
+                name_parts = original_path.stem, counter, original_path.suffix
+                file_path = original_path.parent / f"{name_parts[0]}_{name_parts[1]}{name_parts[2]}"
+                counter += 1
             
-            uploaded_files = []
-            
-            for file in files:
-                if file.filename == '':
-                    continue
-                
-                # Check file extension
-                filename = file.filename.lower()
-                if not any(filename.endswith(ext) for ext in ALLOWED_EXTENSIONS):
-                    logger.warning(f"Unsupported file type: {file.filename}")
-                    continue
-                
-                # Secure the filename
-                safe_filename = secure_filename(file.filename)
-                if not safe_filename:
-                    logger.warning(f"Invalid filename: {file.filename}")
-                    continue
-                
-                # Save to pic-raw directory
-                file_path = controller.source_dir / safe_filename
-                
-                # Handle duplicate filenames by adding counter
-                counter = 1
-                original_path = file_path
-                while file_path.exists():
-                    name_parts = original_path.stem, counter, original_path.suffix
-                    file_path = original_path.parent / f"{name_parts[0]}_{name_parts[1]}{name_parts[2]}"
-                    counter += 1
-                
-                # Save the file
-                file.save(str(file_path))
-                uploaded_files.append({
-                    "filename": file_path.name,
-                    "path": str(file_path),
-                    "size": file_path.stat().st_size
-                })
-                
-                logger.info(f"Uploaded file: {file_path.name}")
-                
-                # Add to conversion queue
-                if controller.conversion_queue:
-                    queue_id = controller.conversion_queue.add_file(file_path)
-                    uploaded_files[-1]["queue_id"] = queue_id
-            
-            if not uploaded_files:
-                return jsonify({"error": "No valid image files uploaded"}), 400
-            
-            return jsonify({
-                "success": True,
-                "uploaded_files": uploaded_files,
-                "count": len(uploaded_files),
-                "message": f"Uploaded {len(uploaded_files)} file(s) and added to conversion queue"
+            # Save the file
+            file.save(str(file_path))
+            uploaded_files.append({
+                "filename": file_path.name,
+                "path": str(file_path),
+                "size": file_path.stat().st_size
             })
             
-        except Exception as e:
-            logger.error(f"File upload failed: {e}")
-            return jsonify({"error": str(e)}), 500
+            logger.info(f"Uploaded file: {file_path.name}")
+            
+            # Add to conversion queue
+            if controller.conversion_queue:
+                queue_id = controller.conversion_queue.add_file(file_path)
+                uploaded_files[-1]["queue_id"] = queue_id
+        
+        if not uploaded_files:
+            return create_error_response("No valid image files uploaded", 400)
+        
+        return create_success_response({
+            "uploaded_files": uploaded_files,
+            "count": len(uploaded_files)
+        }, f"Uploaded {len(uploaded_files)} file(s) and added to conversion queue")
 
     @app.route('/api/queue/status', methods=['GET'])
     def get_queue_status():
