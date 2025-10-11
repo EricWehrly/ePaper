@@ -1,0 +1,32 @@
+services:
+  epaper-display:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount config directory for credentials
+      - ./config:/app/config
+      # Mount pic directories for persistent storage
+      - ./pic:/app/pic
+      - ./pic-raw:/app/pic-raw
+      # Mount logs for debugging
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    
+  # Optional: Add a development container with hot reload
+  epaper-dev:
+    build: .
+    ports:
+      - "5001:5000"
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - PYTHONPATH=/app
+    command: flask run --host=0.0.0.0 --port=5000 --reload
+    profiles:
+      - dev
