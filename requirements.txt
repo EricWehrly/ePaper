@@ -1,0 +1,24 @@
+# ePaper Display Application Dependencies
+
+# Core Flask application
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Image processing
+Pillow==10.0.1
+opencv-python==4.8.1.78
+numpy==1.24.3
+
+# Google Photos API integration
+google-auth==2.23.0
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+requests==2.31.0
+
+# Additional utilities
+python-dotenv==1.0.0
+qrcode[pil]==7.4.2
+
+# Development tools (optional)
+pytest==7.4.2
+black==23.9.1
