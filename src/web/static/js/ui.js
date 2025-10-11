@@ -65,10 +65,37 @@ export async function refreshImages() {
   try {
     const images = await fetchJson('/api/images');
     const list = document.getElementById('thumbList');
-    list.innerHTML = '';
+    
     // Only show converted images for now
     const all = images.converted_images || [];
     updateState({ convertedImages: all });
+    
+    // Remove placeholders for files that have been converted
+    const convertedFilenames = all.map(img => img.name.replace(/\.bmp$/, ''));
+    state.pendingUploads.forEach(pending => {
+      const baseFilename = pending.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+      if (convertedFilenames.some(converted => converted === baseFilename)) {
+        removePendingUploadPlaceholder(pending.filename);
+      }
+    });
+    
+    // Clear list and rebuild with current items
+    list.innerHTML = '';
+    
+    // Add placeholder thumbnails first (newest on top)
+    state.pendingUploads.forEach(pending => {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'thumb placeholder-thumb';
+      placeholder.id = `placeholder-${pending.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      placeholder.innerHTML = `
+        <div class="placeholder-content">
+          <div class="placeholder-spinner"></div>
+          <div class="placeholder-text">Converting...</div>
+          <div class="placeholder-filename">${pending.filename}</div>
+        </div>
+      `;
+      list.appendChild(placeholder);
+    });
     
     all.forEach((item, idx) => {
       const thumb = el('div', { class: 'thumb' });
@@ -205,4 +232,50 @@ export function scheduleNextRefresh() {
   refreshTimer = setTimeout(() => {
     refresh().then(() => scheduleNextRefresh());
   }, interval);
+}
+
+// 📋 Add placeholder thumbnails for files being uploaded/converted
+export function addPendingUploadPlaceholders(uploadedFiles) {
+  const thumbnailsContainer = document.getElementById('thumbList');
+  
+  uploadedFiles.forEach(file => {
+    // Skip if placeholder already exists
+    if (state.pendingUploads.some(p => p.filename === file.filename)) {
+      return;
+    }
+    
+    // Add to pending state
+    state.pendingUploads.push({
+      filename: file.filename,
+      timestamp: Date.now()
+    });
+    
+    // Create placeholder thumbnail
+    const placeholder = document.createElement('div');
+    placeholder.className = 'thumb placeholder-thumb';
+    placeholder.id = `placeholder-${file.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    placeholder.innerHTML = `
+      <div class="placeholder-content">
+        <div class="placeholder-spinner"></div>
+        <div class="placeholder-text">Converting...</div>
+        <div class="placeholder-filename">${file.filename}</div>
+      </div>
+    `;
+    
+    // Add to thumbnails container (prepend to show newest first)
+    thumbnailsContainer.insertBefore(placeholder, thumbnailsContainer.firstChild);
+  });
+}
+
+// 🗑️ Remove placeholder thumbnail for converted file
+export function removePendingUploadPlaceholder(filename) {
+  // Remove from pending state
+  state.pendingUploads = state.pendingUploads.filter(p => p.filename !== filename);
+  
+  // Remove DOM element
+  const placeholderId = `placeholder-${filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const placeholder = document.getElementById(placeholderId);
+  if (placeholder) {
+    placeholder.remove();
+  }
 }

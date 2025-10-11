@@ -221,3 +221,53 @@ h1 { text-align: center; }
     }
 }
 
+/* Placeholder thumbnail styles for uploads being converted */
+.thumb.placeholder-thumb {
+    opacity: 0.7;
+    cursor: default;
+    pointer-events: none;
+    border: 1px dashed var(--muted-2);
+    background: rgba(209, 213, 219, 0.1);
+}
+
+.placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 10px;
+    min-height: 120px;
+    text-align: center;
+}
+
+.placeholder-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--muted-2);
+    border-top: 2px solid var(--accent-blue);
+    border-radius: 50%;
+    animation: placeholder-spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+.placeholder-text {
+    font-size: 0.875rem;
+    color: var(--control-text);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.placeholder-filename {
+    font-size: 0.75rem;
+    color: var(--muted);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@keyframes placeholder-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+

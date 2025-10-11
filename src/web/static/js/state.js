@@ -7,6 +7,7 @@
  */
 export const state = {
   convertedImages: [],
+  pendingUploads: [], // Files uploaded but not yet converted
   settings: {},
   busy: false,
   carouselActive: false,

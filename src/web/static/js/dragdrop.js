@@ -2,7 +2,7 @@
  * Drag-and-drop file upload functionality for ePaper interface
  */
 
-import { refreshImages } from './ui.js';
+import { refreshImages, addPendingUploadPlaceholders, removePendingUploadPlaceholder } from './ui.js';
 
 /**
  * Supported image file extensions for drag-and-drop
@@ -143,6 +143,9 @@ async function uploadFiles(files) {
   
   const result = await response.json();
   console.log('📁 Files saved to pic-raw/, queued for conversion:', result.uploaded_files.map(f => f.filename));
+  
+  // Add placeholder thumbnails for uploaded files
+  addPendingUploadPlaceholders(result.uploaded_files);
   
   // Refresh the images list after upload to show any completed conversions
   setTimeout(refreshImages, 500);
