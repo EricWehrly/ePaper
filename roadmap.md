@@ -10,7 +10,8 @@ then:
 later:
 - google photos integration on the webserver, if we can
 
-
+later:
+- make albums or books or whatever that will cycle a selected set of images
 
 tech debt:
 - the autoplay timer needs to be how long images are displayed, and not take into account how long it takes them to be drawn

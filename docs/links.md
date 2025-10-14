@@ -14,6 +14,7 @@
 
 ### Setup Resources  
 * [Google Cloud Console](https://console.cloud.google.com/)
+* [Complete Google Cloud Setup Guide](./google_cloud_setup.md) ⭐ **Start Here**
 * [API Configuration Guide](https://developers.google.com/photos/overview/configure-your-app)
 * [OAuth 2.0 Setup](https://developers.google.com/identity/protocols/oauth2)
 

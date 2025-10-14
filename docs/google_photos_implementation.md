@@ -64,13 +64,15 @@ pip install -r requirements.txt
   "google_photos": {
     "client_id": "your-client-id.apps.googleusercontent.com",
     "client_secret": "your-client-secret", 
-    "redirect_uri": "http://localhost:5000/oauth/callback",
+    "redirect_path": "/oauth/callback",
     "scopes": ["https://www.googleapis.com/auth/photospicker.mediaitems.readonly"]
   }
 }
 ```
 
-**Security Note**: Never commit real credentials to git. Use environment variables in production.
+**Security Notes**: 
+- Never commit real credentials to git. Use environment variables in production.
+- The `redirect_uri` is built dynamically from request host + `redirect_path`
 
 ---
 
@@ -89,24 +91,31 @@ class GooglePhotosAuth:
     def __init__(self, config):
         self.client_id = config['client_id']
         self.client_secret = config['client_secret'] 
-        self.redirect_uri = config['redirect_uri']
+        self.redirect_path = config['redirect_path']  # Just the path, not full URL
         self.scopes = config['scopes']
         
-    def get_authorization_url(self):
-        """Get URL to redirect user for OAuth consent."""
+    def get_authorization_url(self, request_host_url):
+        """Get URL to redirect user for OAuth consent.
+        
+        Args:
+            request_host_url: Full base URL from Flask request (e.g., 'http://192.168.1.100:5000')
+        """
+        # Build dynamic redirect URI from current request
+        redirect_uri = f"{request_host_url.rstrip('/')}{self.redirect_path}"
+        
         flow = Flow.from_client_config(
             {
                 "web": {
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
-                    "redirect_uris": [self.redirect_uri],
+                    "redirect_uris": [redirect_uri],
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token"
                 }
             },
             scopes=self.scopes
         )
-        flow.redirect_uri = self.redirect_uri
+        flow.redirect_uri = redirect_uri
         
         auth_url, state = flow.authorization_url(
             access_type='offline',
@@ -115,14 +124,23 @@ class GooglePhotosAuth:
         
         return auth_url, state
     
-    def exchange_code_for_tokens(self, authorization_code, state):
-        """Exchange authorization code for access tokens."""
+    def exchange_code_for_tokens(self, authorization_code, state, request_host_url):
+        """Exchange authorization code for access tokens.
+        
+        Args:
+            authorization_code: OAuth code from callback
+            state: OAuth state parameter
+            request_host_url: Full base URL from Flask request
+        """
+        # Build same dynamic redirect URI used in authorization
+        redirect_uri = f"{request_host_url.rstrip('/')}{self.redirect_path}"
+        
         flow = Flow.from_client_config(
             {
                 "web": {
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
-                    "redirect_uris": [self.redirect_uri],
+                    "redirect_uris": [redirect_uri],
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth", 
                     "token_uri": "https://oauth2.googleapis.com/token"
                 }
@@ -130,7 +148,7 @@ class GooglePhotosAuth:
             scopes=self.scopes,
             state=state
         )
-        flow.redirect_uri = self.redirect_uri
+        flow.redirect_uri = redirect_uri
         
         flow.fetch_token(authorization_response=authorization_code)
         
@@ -319,7 +337,10 @@ google_auth = GooglePhotosAuth(config['google_photos'])
 @app.route('/api/google-photos/auth/start')
 def start_google_auth():
     """Start Google Photos OAuth flow."""
-    auth_url, state = google_auth.get_authorization_url()
+    # Build base URL from current request
+    request_host_url = request.url_root.rstrip('/')
+    
+    auth_url, state = google_auth.get_authorization_url(request_host_url)
     session['oauth_state'] = state
     return jsonify({"auth_url": auth_url})
 
@@ -333,7 +354,10 @@ def oauth_callback():
         return "Invalid state parameter", 400
         
     try:
-        credentials = google_auth.exchange_code_for_tokens(code, state)
+        # Build base URL from current request for token exchange
+        request_host_url = request.url_root.rstrip('/')
+        
+        credentials = google_auth.exchange_code_for_tokens(code, state, request_host_url)
         session['google_credentials'] = credentials_to_dict(credentials)
         return redirect('/google-photos-success')
     except Exception as e:
