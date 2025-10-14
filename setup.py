@@ -1,7 +1,14 @@
 import sys, os
 from setuptools import setup
 
-dependencies = ['Pillow', 'Flask>=2.0.0', 'requests']
+dependencies = [
+    'Pillow', 
+    'Flask>=2.0.0', 
+    'requests',
+    'google-auth>=2.23.0',
+    'google-auth-oauthlib>=1.1.0', 
+    'google-auth-httplib2>=0.1.1'
+]
 
 if os.path.exists('/sys/bus/platform/drivers/gpiomem-bcm2835'):
     dependencies += ['RPi.GPIO', 'spidev']
