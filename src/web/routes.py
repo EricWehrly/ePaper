@@ -15,11 +15,15 @@ from .api_utils import (
     validate_image_file, count_files_by_extension, get_controller,
     safe_int, SUPPORTED_IMAGE_EXTENSIONS
 )
+from .auth_routes import auth_bp
 
 logger = logging.getLogger(__name__)
 
 def register_routes(app):
     """Register all API routes with the Flask app"""
+    
+    # Register authentication blueprint
+    app.register_blueprint(auth_bp)
     
     @app.route('/api/status', methods=['GET'])
     @api_route(require_controller=True)

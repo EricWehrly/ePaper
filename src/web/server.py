@@ -25,6 +25,26 @@ def create_app(epaper_controller=None):
     """
     app = Flask(__name__)
     
+    # Configure Flask sessions for authentication
+    import os
+    import secrets
+    
+    # TODO: Evaluate if there should be a better practice here
+    # Use environment variable or generate a random key for development
+    secret_key = os.environ.get('FLASK_SECRET_KEY')
+    if not secret_key:
+        # Generate a random key for development (will change on restart)
+        secret_key = secrets.token_hex(32)
+        logger.warning("Using generated secret key - sessions will not persist across restarts")
+    
+    app.config['SECRET_KEY'] = secret_key
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent XSS
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+    
+    # Only require HTTPS cookies when actually using HTTPS
+    # This allows development on HTTP while securing production
+    app.config['SESSION_COOKIE_SECURE'] = False  # Let the app decide based on request
+    
     # Store controller reference for routes to access
     app.epaper_controller = epaper_controller
     
