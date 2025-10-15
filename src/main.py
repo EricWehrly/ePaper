@@ -472,7 +472,7 @@ class ePaperController:
             
         return 0
     
-    def run_web_server(self, host='0.0.0.0', port=5000, debug=False):
+    def run_web_server(self, host='0.0.0.0', port=5000, debug=False, ssl=False):
         """Run in web server mode - provide API endpoints for remote control"""
         self._web_mode = True
         try:
@@ -511,7 +511,7 @@ class ePaperController:
             self._server_container = server_container
             server_thread = threading.Thread(
                 target=start_server,
-                kwargs={"epaper_controller": self, "host": host, "port": port, "debug": debug, "server_container": server_container},
+                kwargs={"epaper_controller": self, "host": host, "port": port, "debug": debug, "ssl": ssl, "server_container": server_container},
                 daemon=True,
             )
             server_thread.start()
@@ -582,6 +582,11 @@ def main():
         help='Enable debug mode for web server (web mode only)'
     )
     parser.add_argument(
+        '--ssl', 
+        action='store_true',
+        help='Enable HTTPS mode using SSL certificates in config/ (web mode only)'
+    )
+    parser.add_argument(
         '--portrait', 
         action='store_true', 
         default=True,
@@ -611,7 +616,8 @@ def main():
         exit_code = controller.run_web_server(
             host=args.host,
             port=args.port,
-            debug=args.debug
+            debug=args.debug,
+            ssl=args.ssl
         )
     
     sys.exit(exit_code)

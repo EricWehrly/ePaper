@@ -1,13 +1,23 @@
 #!/bin/bash
 
-# TODO: Is this actually used?
 mkdir -p logs
 
-# Start the application
-echo "🚀 Starting web server on http://localhost:5000"
+# Check if SSL certificates exist
+if [[ -f "/app/config/raspberrypi.local.crt" && -f "/app/config/raspberrypi.local.key" ]]; then
+    echo "🔒 SSL certificates found - starting HTTPS server"
+    echo "🚀 Starting web servers:"
+    echo "   📡 HTTP:       http://0.0.0.0:80"
+    echo "   🔐 HTTPS:      https://0.0.0.0:443"
+    echo "   🛠️  HTTP Dev:   http://0.0.0.0:5000"
+    SSL_MODE="--ssl"
+else
+    echo "📡 No SSL certificates found - HTTP only"
+    echo "🚀 Starting web server on http://0.0.0.0:5000"
+    SSL_MODE=""
+fi
 
 # Set environment variables
 export PYTHONPATH=/app
 
-# Start our custom web server (not flask run)
-exec python -m src.main --mode=web --host=0.0.0.0 --port=5000
+# Start our custom web server with optional SSL support
+exec python -m src.main --mode=web --host=0.0.0.0 --port=5000 $SSL_MODE

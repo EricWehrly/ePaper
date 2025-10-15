@@ -2,9 +2,11 @@ services:
   epaper-display:
     build: .
     ports:
-      - "5000:5000"
+      - "80:80"       # HTTP (standard port)
+      - "443:443"     # HTTPS (standard port)  
+      - "5000:5000"   # HTTP (development port)
     volumes:
-      # Mount config directory for credentials
+      # Mount config directory for credentials and SSL certificates
       - ./config:/app/config
       # Mount pic directories for persistent storage
       - ./pic:/app/pic
@@ -14,6 +16,8 @@ services:
     environment:
       - FLASK_ENV=development
       - PYTHONPATH=/app
+      - SSL_CERT_PATH=/app/config/raspberrypi.local.crt
+      - SSL_KEY_PATH=/app/config/raspberrypi.local.key
     restart: unless-stopped
     
   # Optional: Add a development container with hot reload

@@ -96,7 +96,7 @@ def create_app(epaper_controller=None):
     
     return app
 
-def start_server(epaper_controller=None, host='0.0.0.0', port=5000, debug=False, server_container=None):
+def start_server(epaper_controller=None, host='0.0.0.0', port=5000, debug=False, ssl=False, server_container=None):
     """
     Start the Flask web server
     
@@ -116,9 +116,63 @@ def start_server(epaper_controller=None, host='0.0.0.0', port=5000, debug=False,
     except Exception:
         pass
 
-    logger.info(f"Starting ePaper web server on {host}:{port}")
-    # Use a WSGI server so we can programmatically shutdown from another thread
-    server = make_server(host, port, app)
+    # SSL context setup if enabled
+    ssl_context = None
+    if ssl:
+        try:
+            from pathlib import Path
+            import ssl as ssl_module
+            
+            # Look for SSL certificates in config directory
+            project_root = Path(__file__).resolve().parents[2]  # Go up from src/web/server.py to project root
+            config_dir = project_root / 'config'
+            cert_file = config_dir / 'raspberrypi.local.crt'
+            key_file = config_dir / 'raspberrypi.local.key'
+            
+            if cert_file.exists() and key_file.exists():
+                ssl_context = ssl_module.create_default_context(ssl_module.Purpose.CLIENT_AUTH)
+                ssl_context.load_cert_chain(str(cert_file), str(key_file))
+                logger.info(f"SSL enabled using certificates: {cert_file}")
+                
+                # If SSL is enabled, start both HTTP and HTTPS servers on standard ports
+                if port == 5000:  # Default development port
+                    # Start multiple servers for different access methods
+                    import threading
+                    
+                    logger.info(f"Starting ePaper web servers:")
+                    logger.info(f"  HTTP:       http://{host}:80")
+                    logger.info(f"  HTTPS:      https://{host}:443") 
+                    logger.info(f"  HTTP Dev:   http://{host}:5000")
+                    
+                    # Start HTTP server on port 80 in background thread
+                    http_80_server = make_server(host, 80, app)
+                    http_80_thread = threading.Thread(target=http_80_server.serve_forever, daemon=True)
+                    http_80_thread.start()
+                    
+                    # Start HTTP development server on port 5000 in background thread  
+                    http_dev_server = make_server(host, 5000, app)
+                    http_dev_thread = threading.Thread(target=http_dev_server.serve_forever, daemon=True)
+                    http_dev_thread.start()
+                    
+                    # Main thread runs HTTPS server on port 443
+                    server = make_server(host, 443, app, ssl_context=ssl_context)
+                else:
+                    logger.info(f"Starting ePaper HTTPS server on {host}:{port}")
+                    server = make_server(host, port, app, ssl_context=ssl_context)
+            else:
+                logger.warning(f"SSL certificates not found at {cert_file} and {key_file}")
+                logger.warning("Falling back to HTTP mode")
+                ssl_context = None
+        except Exception as e:
+            logger.error(f"Failed to setup SSL: {e}")
+            logger.warning("Falling back to HTTP mode")
+            ssl_context = None
+    
+    # Fallback to HTTP-only server
+    if not ssl_context:
+        logger.info(f"Starting ePaper web server on http://{host}:{port}")
+        server = make_server(host, port, app)
+    
     if server_container is not None and isinstance(server_container, dict):
         server_container['server'] = server
 
