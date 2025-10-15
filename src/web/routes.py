@@ -37,7 +37,7 @@ def register_routes(app):
         
         return jsonify({
             "status": "running" if controller.running else "stopped",
-            "display_initialized": controller.display_manager is not None,
+            "display_initialized": controller.display_available,
             "source_dir": str(controller.source_dir),
             "output_dir": str(controller.output_dir),
             "display_interval": controller.display_interval,
@@ -108,8 +108,8 @@ def register_routes(app):
             if not controller:
                 return jsonify({"error": "Controller not initialized"}), 500
                 
-            if not controller.display_manager:
-                return jsonify({"error": "Display not initialized"}), 500
+            if not controller.display_available:
+                return jsonify({"error": "Display hardware not available"}), 503
                 
             # Get available converted images
             converted_images = []
@@ -175,8 +175,8 @@ def register_routes(app):
             if not controller:
                 return jsonify({"error": "Controller not initialized"}), 500
 
-            if not controller.display_manager:
-                return jsonify({"error": "Display not initialized"}), 500
+            if not controller.display_available:
+                return jsonify({"error": "Display hardware not available"}), 503
 
             if controller.is_busy():
                 return jsonify({"error": "Display busy"}), 409

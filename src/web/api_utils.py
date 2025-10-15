@@ -36,9 +36,9 @@ def api_route(require_controller=True, require_display=False):
                     if not controller:
                         return create_error_response("Controller not initialized", 500)
                     
-                    # Validate display manager if required
-                    if require_display and not controller.display_manager:
-                        return create_error_response("Display not initialized", 500)
+                    # Validate display hardware if required
+                    if require_display and not controller.display_available:
+                        return create_error_response("Display hardware not available", 503)
                     
                     # Check if display is busy for display operations
                     if require_display and controller.is_busy():

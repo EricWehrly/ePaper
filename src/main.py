@@ -47,6 +47,7 @@ class ePaperController:
     def __init__(self):
         self.running = True
         self.display_manager = None
+        self.display_available = False  # Track if display hardware is actually available
         # Path to the currently displayed image (str) or None
         self.current_image = None
         # Container to hold server instance when running web server
@@ -202,8 +203,12 @@ class ePaperController:
         try:
             self.display_manager = display.DisplayManager()
             self.display_manager.initialize()
+            self.display_available = True
+            logger.info("Display initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize display: {e}")
+            self.display_manager = None
+            self.display_available = False
             return False
         return True
         
@@ -288,8 +293,8 @@ class ePaperController:
             image_path: Path to image to display
             reset_carousel_timer: If True, resets carousel timer (for manual displays)
         """
-        if not self.display_manager:
-            raise RuntimeError("Display manager not initialized")
+        if not self.display_available:
+            raise RuntimeError("Display hardware not available")
         with self._busy_lock:
             self._set_busy(True)
             # Update current_image to incoming image BEFORE display starts
@@ -309,8 +314,8 @@ class ePaperController:
 
     def clear_display(self):
         """Clear the display and update state."""
-        if not self.display_manager:
-            raise RuntimeError("Display manager not initialized")
+        if not self.display_available:
+            raise RuntimeError("Display hardware not available")
         with self._busy_lock:
             self._set_busy(True)
             try:
@@ -386,8 +391,8 @@ class ePaperController:
                         self._save_state()
                         try:
                             # Show the image (this calls display manager directly, not through show_image wrapper)
-                            if not self.display_manager:
-                                raise RuntimeError("Display manager not initialized")
+                            if not self.display_available:
+                                raise RuntimeError("Display hardware not available")
                             self.display_manager.show_image(str(images[idx]))
                             # Track completion timestamp for next iteration
                             self._last_display_completion = time.time()
