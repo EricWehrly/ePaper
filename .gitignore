@@ -10,7 +10,6 @@ pic-raw
 test/outputs/
 
 config/*
-config/*
 
 # Environment files
 .env

@@ -16,6 +16,7 @@ from .api_utils import (
     safe_int, SUPPORTED_IMAGE_EXTENSIONS
 )
 from .auth_routes import auth_bp
+from .google_photos_routes import google_photos_bp
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ def register_routes(app):
     
     # Register authentication blueprint
     app.register_blueprint(auth_bp)
+    
+    # Register Google Photos API blueprint
+    app.register_blueprint(google_photos_bp)
     
     @app.route('/api/status', methods=['GET'])
     @api_route(require_controller=True)
@@ -354,3 +358,65 @@ def register_routes(app):
         except Exception as e:
             logger.error(f"Queue status failed: {e}")
             return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/ngrok-info', methods=['GET'])
+    def get_ngrok_info():
+        """Get ngrok tunnel information for OAuth redirects"""
+        try:
+            import requests
+            
+            # Check if ngrok is running by trying a few well-known endpoints.
+            # Prefer localhost (works when ngrok is bound to host), then
+            # host.docker.internal (Docker for Mac/Windows), then container name
+            # (works when ngrok runs as a sibling container on the same network).
+            ngrok_urls = [
+                'http://localhost:4040/api/tunnels',
+                'http://host.docker.internal:4040/api/tunnels',
+                'http://epaper-ngrok-1:4040/api/tunnels'
+            ]
+
+            tunnels_data = None
+            for url in ngrok_urls:
+                try:
+                    response = requests.get(url, timeout=2)
+                    if response.status_code == 200:
+                        tunnels_data = response.json()
+                        break
+                except requests.exceptions.RequestException:
+                    # try next candidate
+                    continue
+
+            if not tunnels_data:
+                return jsonify({
+                    'ngrok_available': False,
+                    'message': 'ngrok not running or not accessible'
+                })
+
+            # Find HTTPS tunnel
+            https_tunnel = None
+            for tunnel in tunnels_data.get('tunnels', []):
+                if tunnel.get('proto') == 'https':
+                    https_tunnel = tunnel
+                    break
+
+            if https_tunnel:
+                public_url = https_tunnel.get('public_url')
+                return jsonify({
+                    'ngrok_available': True,
+                    'public_url': public_url,
+                    'tunnel_active': True,
+                    'oauth_url': f"{public_url}/api/google-photos/auth"
+                })
+
+            # ngrok is running but no HTTPS tunnel present
+            return jsonify({
+                'ngrok_available': True,
+                'tunnel_active': False,
+                'message': 'ngrok running but no HTTPS tunnel found'
+            })
+        except Exception as e:
+            logger.error(f"ngrok info check failed: {e}")
+            return jsonify({
+                'ngrok_available': False,
+                'error': str(e)
+            })

@@ -230,6 +230,10 @@ class GooglePhotosAuth:
         session.pop('authenticated', None)
         logger.info("User logged out")
     
+    def clear_authentication(self):
+        """Clear all authentication data (alias for logout)"""
+        self.logout()
+    
     def revoke_token(self, token):
         """
         Revoke access token or refresh token

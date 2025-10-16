@@ -13,6 +13,9 @@ later:
 later:
 - make albums or books or whatever that will cycle a selected set of images
 
+nice to have:
+- color pallete selector in top-right with localstorage persistence
+
 tech debt:
 - the autoplay timer needs to be how long images are displayed, and not take into account how long it takes them to be drawn
 - our prev and next buttons work but provide no feedback
