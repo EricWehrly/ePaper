@@ -59,13 +59,41 @@ def start_auth():
                 'details': 'OAuth credentials not found. Please configure Google Photos integration.'
             }), 500
         
-        # Construct redirect URI for the callback
-        from flask import url_for
-        redirect_uri = url_for('auth.oauth_callback', _external=True)
+        # Construct redirect URI for the callback - prefer HTTPS ngrok URL if available
+        redirect_uri = None
+        
+        # Try to get ngrok HTTPS URL first
+        try:
+            import requests
+            ngrok_urls = [
+                'http://localhost:4040/api/tunnels',
+                'http://host.docker.internal:4040/api/tunnels', 
+                'http://epaper-ngrok-1:4040/api/tunnels'
+            ]
+            
+            for ngrok_url in ngrok_urls:
+                try:
+                    response = requests.get(ngrok_url, timeout=2)
+                    if response.status_code == 200:
+                        tunnels = response.json().get('tunnels', [])
+                        https_tunnel = next((t for t in tunnels if t.get('proto') == 'https'), None)
+                        if https_tunnel:
+                            public_url = https_tunnel.get('public_url')
+                            redirect_uri = f"{public_url}/auth/callback"
+                            break
+                except requests.exceptions.RequestException:
+                    continue
+        except Exception:
+            pass
+        
+        # Fallback to Flask url_for if ngrok not available
+        if not redirect_uri:
+            from flask import url_for
+            redirect_uri = url_for('auth.oauth_callback', _external=True)
         
         # Get authorization URL and redirect user
         auth_url = google_auth.get_auth_url(redirect_uri=redirect_uri)
-        logger.info(f"Redirecting to Google Photos auth: {auth_url}")
+        logger.info(f"Redirecting to Google Photos auth: {auth_url} with redirect_uri: {redirect_uri}")
         
         from flask import redirect
         return redirect(auth_url)
