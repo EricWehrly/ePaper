@@ -647,3 +647,57 @@ h1 { text-align: center; }
     content: "⏳ ";
 }
 
+/* Google Photos Photo Selection Overlay */
+.photo-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 8px;
+}
+
+.photo-item:hover .photo-overlay {
+    opacity: 1;
+}
+
+.photo-item.selected .photo-overlay {
+    opacity: 1;
+    background: rgba(37, 99, 235, 0.2);
+}
+
+.photo-select-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #ddd;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.photo-item.selected .photo-select-btn {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+}
+
+.photo-select-btn .checkmark {
+    font-size: 12px;
+    font-weight: bold;
+    opacity: 0;
+}
+
+.photo-item.selected .photo-select-btn .checkmark {
+    opacity: 1;
+}
+

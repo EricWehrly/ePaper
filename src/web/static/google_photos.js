@@ -69,6 +69,16 @@ class GooglePhotosManager {
             logoutBtn.addEventListener('click', () => this.handleAuth());
         }
 
+        const downloadBtn = document.getElementById('downloadBtn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => this.downloadSelectedPhotos());
+        }
+
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', () => this.clearSelection());
+        }
+
         // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
@@ -109,6 +119,218 @@ class GooglePhotosManager {
         
         // For now, just show that we're trying to load
         console.log('Would load content for tab:', this.currentTab);
+        
+        // Actually load the content based on the tab
+        if (this.currentTab === 'recent') {
+            await this.loadRecentPhotos();
+        } else if (this.currentTab === 'albums') {
+            await this.loadAlbums();
+        }
+    }
+
+    async loadRecentPhotos() {
+        console.log('Loading recent photos...');
+        const grid = document.getElementById('recentPhotosGrid');
+        if (!grid) return;
+        
+        try {
+            grid.innerHTML = '<div class="loading-placeholder">Loading recent photos...</div>';
+            
+            const response = await fetch('/api/google-photos/recent');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Received recent photos:', data);
+            
+            if (data.photos && data.photos.length > 0) {
+                this.renderPhotoGrid(data.photos, 'recentPhotosGrid');
+            } else {
+                grid.innerHTML = '<div class="loading-placeholder">No recent photos found</div>';
+            }
+        } catch (error) {
+            console.error('Failed to load recent photos:', error);
+            grid.innerHTML = '<div class="loading-placeholder">Failed to load recent photos. Please try again.</div>';
+        }
+    }
+
+    async loadAlbums() {
+        console.log('Loading albums...');
+        const albumsList = document.getElementById('albumsList');
+        if (!albumsList) return;
+        
+        try {
+            albumsList.innerHTML = '<div class="loading-placeholder">Loading albums...</div>';
+            
+            const response = await fetch('/api/google-photos/albums');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Received albums:', data);
+            
+            if (data.albums && data.albums.length > 0) {
+                this.renderAlbumsList(data.albums);
+            } else {
+                albumsList.innerHTML = '<div class="loading-placeholder">No albums found</div>';
+            }
+        } catch (error) {
+            console.error('Failed to load albums:', error);
+            albumsList.innerHTML = '<div class="loading-placeholder">Failed to load albums. Please try again.</div>';
+        }
+    }
+
+    renderPhotoGrid(photos, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        photos.forEach(photo => {
+            const photoElement = document.createElement('div');
+            photoElement.className = 'photo-item';
+            photoElement.innerHTML = `
+                <img src="${photo.baseUrl}=w200-h200-c" alt="${photo.filename || 'Photo'}" loading="lazy">
+                <div class="photo-overlay">
+                    <div class="photo-select-btn" data-photo-id="${photo.id}">
+                        <span class="checkmark">✓</span>
+                    </div>
+                </div>
+            `;
+            
+            // Add click handler for selection
+            const selectBtn = photoElement.querySelector('.photo-select-btn');
+            selectBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.togglePhotoSelection(photo.id, photoElement);
+            });
+            
+            container.appendChild(photoElement);
+        });
+    }
+
+    renderAlbumsList(albums) {
+        const container = document.getElementById('albumsList');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        albums.forEach(album => {
+            const albumElement = document.createElement('div');
+            albumElement.className = 'album-item';
+            albumElement.innerHTML = `
+                <div class="album-cover">
+                    <img src="${album.coverPhotoBaseUrl || ''}=w200-h200-c" alt="${album.title}" loading="lazy">
+                </div>
+                <div class="album-info">
+                    <h4>${album.title}</h4>
+                    <p>${album.mediaItemsCount || 0} photos</p>
+                </div>
+            `;
+            
+            albumElement.addEventListener('click', () => {
+                this.openAlbum(album);
+            });
+            
+            container.appendChild(albumElement);
+        });
+    }
+
+    togglePhotoSelection(photoId, photoElement) {
+        if (this.selectedPhotos.has(photoId)) {
+            this.selectedPhotos.delete(photoId);
+            photoElement.classList.remove('selected');
+        } else {
+            this.selectedPhotos.add(photoId);
+            photoElement.classList.add('selected');
+        }
+        
+        this.updateSelectedCount();
+    }
+
+    updateSelectedCount() {
+        const countElement = document.getElementById('selectedCount');
+        const selectedSection = document.getElementById('selectedPhotos');
+        
+        if (countElement) {
+            countElement.textContent = this.selectedPhotos.size;
+        }
+        
+        if (selectedSection) {
+            selectedSection.style.display = this.selectedPhotos.size > 0 ? 'block' : 'none';
+        }
+    }
+
+    async openAlbum(album) {
+        console.log('Opening album:', album.title);
+        // TODO: Implement album photo loading
+        // This would load photos from the specific album
+    }
+
+    async downloadSelectedPhotos() {
+        if (this.selectedPhotos.size === 0) {
+            alert('Please select some photos first');
+            return;
+        }
+
+        const downloadBtn = document.getElementById('downloadBtn');
+        const originalText = downloadBtn.textContent;
+        
+        try {
+            downloadBtn.textContent = 'Downloading...';
+            downloadBtn.disabled = true;
+
+            const photoIds = Array.from(this.selectedPhotos);
+            console.log('Downloading photos:', photoIds);
+
+            const response = await fetch('/api/google-photos/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    photo_ids: photoIds
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            console.log('Download result:', result);
+
+            // Show success message
+            alert(`Successfully downloaded ${result.downloaded_count} photos!`);
+            
+            // Clear selection
+            this.clearSelection();
+            
+            // Trigger a refresh of the main file list
+            if (window.refreshFileList) {
+                window.refreshFileList();
+            }
+
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('Download failed: ' + error.message);
+        } finally {
+            downloadBtn.textContent = originalText;
+            downloadBtn.disabled = false;
+        }
+    }
+
+    clearSelection() {
+        this.selectedPhotos.clear();
+        
+        // Remove selected class from all photo items
+        document.querySelectorAll('.photo-item.selected').forEach(item => {
+            item.classList.remove('selected');
+        });
+        
+        this.updateSelectedCount();
     }
 
     showPlaceholderContent() {
