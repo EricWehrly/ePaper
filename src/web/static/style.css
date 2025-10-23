@@ -1,5 +1,123 @@
 /* Consolidated stylesheet - cross-browser scrollbar + variables */
 
+/* Ngrok Redirect Banner Styles */
+.ngrok-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: white;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-bottom: 3px solid #ea580c;
+}
+
+.banner-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 20px;
+}
+
+.banner-message {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.banner-message strong {
+    font-size: 16px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.countdown-section {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.countdown-timer {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 0 4px;
+    min-width: 24px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.banner-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.banner-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.banner-btn.primary {
+    background: rgba(255, 255, 255, 0.9);
+    color: #f97316;
+}
+
+.banner-btn.primary:hover {
+    background: white;
+    transform: translateY(-1px);
+}
+
+.banner-btn.secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.banner-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    .banner-content {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+    
+    .banner-actions {
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+    
+    .banner-buttons {
+        justify-content: center;
+    }
+}
+
+/* Adjust body padding when banner is shown */
+body.banner-active {
+    padding-top: 80px;
+}
+
 :root {
     --bg-base: #e9e5dd; /* darken page background a touch */
     --panel-bg: #f1f5f9; /* light slate gray for UI panels/controls */

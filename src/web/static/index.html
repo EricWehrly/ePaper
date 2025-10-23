@@ -7,6 +7,27 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <!-- Ngrok Redirect Banner -->
+  <div id="ngrokBanner" class="ngrok-banner" style="display: none;">
+    <div class="banner-content">
+      <div class="banner-message">
+        <strong>🔒 OAuth Authentication Required</strong><br>
+        Redirecting to secure HTTPS tunnel for Google Photos authentication...
+      </div>
+      <div class="banner-actions">
+        <div class="countdown-section">
+          <span class="countdown-text">Redirecting in: </span>
+          <span id="bannerCountdown" class="countdown-timer">7</span>
+          <span class="countdown-text">s</span>
+        </div>
+        <div class="banner-buttons">
+          <button id="redirectNowBtn" class="banner-btn primary">Redirect Now</button>
+          <button id="cancelRedirectBtn" class="banner-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <div class="container">
     <h1>ePaper</h1>
     <div class="panel">
@@ -123,6 +144,7 @@
       </div>
     </div>
   </div>
+  <script src="/static/js/ngrok_banner.js"></script>
   <script src="/static/google_photos.js"></script>
   <script>
     // Minimal module loader with performance.now() cache-buster

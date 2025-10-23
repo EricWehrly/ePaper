@@ -71,7 +71,11 @@ class ePaperController:
             'mode': 'image',           # 'image' or 'carousel'
             'autoplay': False,         # server-driven carousel active
             'interval_sec': 30,        # seconds between images in carousel
-            'orientation': 'portrait'  # 'portrait' | 'landscape'
+            'orientation': 'portrait', # 'portrait' | 'landscape'
+            'ngrok_redirect': {        # ngrok redirect banner configuration
+                'enabled': True,
+                'countdown_seconds': 7
+            }
         }
         # Load any persisted settings and state
         self._load_settings()
@@ -101,7 +105,14 @@ class ePaperController:
                 with open(self.settings_path, 'r') as f:
                     data = json.load(f)
                 if isinstance(data, dict):
-                    self.settings.update({k: v for k,v in data.items() if k in self.settings})
+                    # Update simple settings
+                    for k, v in data.items():
+                        if k in self.settings:
+                            if isinstance(self.settings[k], dict) and isinstance(v, dict):
+                                # Handle nested dictionaries (like ngrok_redirect)
+                                self.settings[k].update(v)
+                            else:
+                                self.settings[k] = v
         except Exception as e:
             logger.warning(f"Failed to load settings: {e}")
 

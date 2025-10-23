@@ -258,6 +258,12 @@ def register_routes(app):
             else:
                 controller.stop_carousel()
         
+        # Update ngrok_redirect settings
+        if 'ngrok_redirect' in data:
+            if isinstance(data['ngrok_redirect'], dict):
+                controller.settings['ngrok_redirect'].update(data['ngrok_redirect'])
+                controller._save_settings()
+        
         return create_success_response({"settings": controller.settings})
 
     # ------------- Navigation Endpoints -------------

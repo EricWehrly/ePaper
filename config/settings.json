@@ -2,5 +2,9 @@
   "mode": "carousel",
   "autoplay": true,
   "interval_sec": 30,
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "ngrok_redirect": {
+    "enabled": true,
+    "countdown_seconds": 3
+  }
 }
