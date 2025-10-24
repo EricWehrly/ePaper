@@ -27,7 +27,7 @@ def register_routes(app):
     app.register_blueprint(auth_bp)
     
     # Register Google Photos API blueprint
-    app.register_blueprint(google_photos_bp)
+    app.register_blueprint(google_photos_bp, url_prefix='/api/google-photos')
     
     @app.route('/api/status', methods=['GET'])
     @api_route(require_controller=True)

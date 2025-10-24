@@ -37,7 +37,7 @@ class GooglePhotosAuth:
             'revoke_uri': 'https://oauth2.googleapis.com/revoke',
         }
         self.scopes = [
-            'https://www.googleapis.com/auth/photoslibrary.readonly',
+            'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
             'openid',
             'email'
         ]
@@ -141,6 +141,10 @@ class GooglePhotosAuth:
         
         tokens = response.json()
         
+        # Add timestamp for expiration tracking
+        import time
+        tokens['issued_at'] = time.time()
+        
         # Store tokens in session
         session['google_tokens'] = tokens
         session['authenticated'] = True
@@ -195,6 +199,10 @@ class GooglePhotosAuth:
         
         new_tokens = response.json()
         
+        # Add timestamp for expiration tracking
+        import time
+        new_tokens['issued_at'] = time.time()
+        
         # Update session with new tokens
         current_tokens = session.get('google_tokens', {})
         current_tokens.update(new_tokens)
@@ -220,9 +228,52 @@ class GooglePhotosAuth:
         tokens = session['google_tokens']
         access_token = tokens.get('access_token')
         
-        # TODO: Check if token is expired and refresh if needed
-        # For now, assume token is valid
+        # Check if token is expired and refresh if needed
+        if self._is_token_expired(tokens):
+            refresh_token = tokens.get('refresh_token')
+            if refresh_token:
+                try:
+                    logger.info("Access token expired, refreshing...")
+                    new_tokens = self.refresh_token(refresh_token)
+                    access_token = new_tokens.get('access_token', access_token)
+                except Exception as e:
+                    logger.error(f"Failed to refresh token: {e}")
+                    return None
+            else:
+                logger.error("Token expired but no refresh token available")
+                return None
+        
         return access_token
+    
+    def _is_token_expired(self, tokens):
+        """
+        Check if access token is expired
+        
+        Args:
+            tokens: Token dictionary with expires_in and timestamp
+            
+        Returns:
+            bool: True if token is expired or will expire soon
+        """
+        import time
+        
+        # Get token expiration info
+        expires_in = tokens.get('expires_in', 3600)  # Default 1 hour
+        issued_at = tokens.get('issued_at')
+        
+        # If no issued_at timestamp, assume token is fresh
+        if not issued_at:
+            # Add timestamp for future checks
+            tokens['issued_at'] = time.time()
+            session['google_tokens'] = tokens
+            return False
+        
+        # Check if token will expire in the next 5 minutes (300 seconds buffer)
+        current_time = time.time()
+        expiry_time = issued_at + expires_in
+        buffer_time = 300  # 5 minutes
+        
+        return (current_time + buffer_time) >= expiry_time
     
     def logout(self):
         """Clear authentication session"""

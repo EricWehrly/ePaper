@@ -1,26 +1,21 @@
 """
-Google Photos API Routes
-
-Flask routes for Google Photos integration:
-- /api/google-photos/albums - List user albums
-- /api/google-photos/photos - Search/list photos  
-- /api/google-photos/recent - Get recent photos
-- /api/google-photos/download - Download selected photos
+Google Photos Picker API routes for web interface
 """
 
 import logging
-from flask import Blueprint, request, jsonify, session
+import requests
+from flask import Blueprint, jsonify, session, request
 from .google_auth import GooglePhotosAuth
-from .google_photos_api import GooglePhotosAPI
+from .google_photos_picker_api import GooglePhotosPickerAPI
 
 logger = logging.getLogger(__name__)
 
-# Create blueprint for Google Photos API routes
-google_photos_bp = Blueprint('google_photos', __name__, url_prefix='/api/google-photos')
+# Create blueprint
+google_photos_bp = Blueprint('google_photos', __name__)
 
 # Initialize API clients
 google_auth = GooglePhotosAuth()
-google_api = GooglePhotosAPI()
+picker_api = GooglePhotosPickerAPI()
 
 @google_photos_bp.route('/status')
 def photos_status():
@@ -31,11 +26,30 @@ def photos_status():
         JSON with configuration and authentication status
     """
     try:
+        # Add token scope debugging
+        token_info = None
+        if google_auth.is_authenticated():
+            try:
+                access_token = google_auth.get_access_token()
+                if access_token:
+                    # Check token info to see what scopes we actually have
+                    response = requests.get(
+                        f'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={access_token}',
+                        timeout=5
+                    )
+                    if response.ok:
+                        token_info = response.json()
+                        logger.info(f"Current token scopes: {token_info.get('scope', 'No scope info')}")
+            except Exception as e:
+                logger.warning(f"Failed to get token info: {e}")
+
         return jsonify({
             'configured': google_auth.is_configured(),
             'authenticated': google_auth.is_authenticated(),
             'has_access_token': google_auth.get_access_token() is not None,
-            'user': session.get('user_info') if google_auth.is_authenticated() else None
+            'user': session.get('user_info') if google_auth.is_authenticated() else None,
+            'token_scopes': token_info.get('scope') if token_info else None,
+            'debug_token_info': token_info  # Remove this after debugging
         })
         
     except Exception as e:
@@ -64,7 +78,6 @@ def start_auth():
         
         # Try to get ngrok HTTPS URL first
         try:
-            import requests
             ngrok_urls = [
                 'http://localhost:4040/api/tunnels',
                 'http://host.docker.internal:4040/api/tunnels', 
@@ -86,17 +99,15 @@ def start_auth():
         except Exception:
             pass
         
-        # Fallback to Flask url_for if ngrok not available
+        # Fallback to localhost if ngrok not available
         if not redirect_uri:
-            from flask import url_for
-            redirect_uri = url_for('auth.oauth_callback', _external=True)
+            redirect_uri = request.url_root.rstrip('/') + '/auth/callback'
         
-        # Get authorization URL and redirect user
-        auth_url = google_auth.get_auth_url(redirect_uri=redirect_uri)
+        # Generate and redirect to OAuth URL
+        auth_url = google_auth.get_auth_url(redirect_uri)
         logger.info(f"Redirecting to Google Photos auth: {auth_url} with redirect_uri: {redirect_uri}")
         
-        from flask import redirect
-        return redirect(auth_url)
+        return jsonify({'redirect_url': auth_url}), 302, {'Location': auth_url}
         
     except Exception as e:
         logger.error(f"Error starting Google Photos auth: {e}")
@@ -108,25 +119,23 @@ def start_auth():
 @google_photos_bp.route('/disconnect', methods=['POST'])
 def disconnect():
     """
-    Disconnect from Google Photos by clearing stored tokens
+    Disconnect from Google Photos (logout)
     
     Returns:
         JSON confirmation of disconnection
     """
     try:
-        # Clear authentication data
-        google_auth.clear_authentication()
+        # Clear authentication
+        google_auth.logout()
         
-        # Clear session data
-        session.pop('google_access_token', None)
-        session.pop('google_refresh_token', None) 
+        # Clear any active picker session
+        session.pop('picker_session_id', None)
         session.pop('user_info', None)
         
         logger.info("User disconnected from Google Photos")
-        
         return jsonify({
             'success': True,
-            'message': 'Disconnected from Google Photos'
+            'message': 'Successfully disconnected from Google Photos'
         })
         
     except Exception as e:
@@ -136,63 +145,13 @@ def disconnect():
             'details': str(e)
         }), 500
 
-@google_photos_bp.route('/ngrok-info')
-def ngrok_info():
+@google_photos_bp.route('/create-session', methods=['POST'])
+def create_session():
     """
-    Provide ngrok URL information for OAuth redirect
+    Create a new Google Photos picking session
     
     Returns:
-        JSON with ngrok URL and redirect recommendation
-    """
-    try:
-        import requests
-        
-        # Check if ngrok is running by querying its API
-        try:
-            response = requests.get('http://ngrok:4040/api/tunnels', timeout=2)
-            if response.ok:
-                tunnels = response.json().get('tunnels', [])
-                https_tunnel = next((t for t in tunnels if t.get('proto') == 'https'), None)
-                
-                if https_tunnel:
-                    ngrok_url = https_tunnel['public_url']
-                    
-                    # Recommend redirect if user is not authenticated and we're on local domain
-                    should_redirect = (not google_auth.is_authenticated() and 
-                                     request.host.startswith('raspberrypi.local'))
-                    
-                    return jsonify({
-                        'ngrok_url': ngrok_url,
-                        'should_redirect': should_redirect,
-                        'authenticated': google_auth.is_authenticated()
-                    })
-        except:
-            pass  # Ngrok not available
-        
-        return jsonify({
-            'ngrok_url': None,
-            'should_redirect': False,
-            'authenticated': google_auth.is_authenticated()
-        })
-        
-    except Exception as e:
-        logger.error(f"Error getting ngrok info: {e}")
-        return jsonify({
-            'error': 'Failed to get ngrok info',
-            'details': str(e)
-        }), 500
-
-@google_photos_bp.route('/albums')
-def list_albums():
-    """
-    List user's Google Photos albums
-    
-    Query parameters:
-        page_size: Number of albums per page (default: 20, max: 50)
-        page_token: Pagination token
-        
-    Returns:
-        JSON with albums list and pagination info
+        JSON with session info including pickerUri
     """
     if not google_auth.is_authenticated():
         return jsonify({
@@ -208,38 +167,31 @@ def list_albums():
                 'details': 'Authentication expired or invalid'
             }), 401
         
-        # Get query parameters
-        page_size = min(int(request.args.get('page_size', 20)), 50)
-        page_token = request.args.get('page_token')
+        # Create picker session
+        session_data = picker_api.create_session(access_token)
         
-        # Fetch albums from Google Photos API
-        result = google_api.get_albums(
-            access_token=access_token,
-            page_size=page_size,
-            page_token=page_token
-        )
+        # Store session ID in user session for tracking
+        session['picker_session_id'] = session_data['id']
         
-        return jsonify(result)
+        return jsonify({
+            'success': True,
+            'session': session_data
+        })
         
     except Exception as e:
-        logger.error(f"Error listing albums: {e}")
+        logger.error(f"Error creating picker session: {e}")
         return jsonify({
-            'error': 'Failed to list albums',
+            'error': 'Failed to create picker session',
             'details': str(e)
         }), 500
 
-@google_photos_bp.route('/photos')
-def search_photos():
+@google_photos_bp.route('/session-status')
+def get_session_status():
     """
-    Search for photos with optional filters
+    Get status of current picking session
     
-    Query parameters:
-        album_id: Search within specific album (optional)
-        page_size: Number of photos per page (default: 25, max: 100) 
-        page_token: Pagination token
-        
     Returns:
-        JSON with photos list and pagination info
+        JSON with session status and media items availability
     """
     if not google_auth.is_authenticated():
         return jsonify({
@@ -247,53 +199,60 @@ def search_photos():
             'details': 'Please authenticate with Google Photos first'
         }), 401
     
+    session_id = session.get('picker_session_id')
+    if not session_id:
+        return jsonify({
+            'error': 'No active session',
+            'details': 'No picking session found. Create a session first.'
+        }), 400
+    
     try:
         access_token = google_auth.get_access_token()
         if not access_token:
             return jsonify({
-                'error': 'No access token', 
+                'error': 'No access token',
                 'details': 'Authentication expired or invalid'
             }), 401
         
-        # Get query parameters
-        album_id = request.args.get('album_id')
-        page_size = min(int(request.args.get('page_size', 25)), 100)
-        page_token = request.args.get('page_token')
+        # Get session status
+        session_info = picker_api.get_session(access_token, session_id)
         
-        # Search photos
-        result = google_api.search_photos(
-            access_token=access_token,
-            album_id=album_id,
-            page_size=page_size,
-            page_token=page_token
-        )
-        
-        return jsonify(result)
+        return jsonify({
+            'success': True,
+            'session': session_info
+        })
         
     except Exception as e:
-        logger.error(f"Error searching photos: {e}")
+        logger.error(f"Error getting session status: {e}")
         return jsonify({
-            'error': 'Failed to search photos',
+            'error': 'Failed to get session status',
             'details': str(e)
         }), 500
 
-@google_photos_bp.route('/recent')
-def recent_photos():
+@google_photos_bp.route('/selected-photos')
+def get_selected_photos():
     """
-    Get recent photos from user's library
+    Get photos selected by user in current session
     
     Query parameters:
         page_size: Number of photos per page (default: 25, max: 100)
         page_token: Pagination token
         
     Returns:
-        JSON with recent photos
+        JSON with selected photos
     """
     if not google_auth.is_authenticated():
         return jsonify({
             'error': 'Not authenticated',
-            'details': 'Please authenticate with Google Photos first'  
+            'details': 'Please authenticate with Google Photos first'
         }), 401
+    
+    session_id = session.get('picker_session_id')
+    if not session_id:
+        return jsonify({
+            'error': 'No active session',
+            'details': 'No picking session found. Create a session first.'
+        }), 400
     
     try:
         access_token = google_auth.get_access_token()
@@ -307,9 +266,18 @@ def recent_photos():
         page_size = min(int(request.args.get('page_size', 25)), 100)
         page_token = request.args.get('page_token')
         
-        # Get recent photos
-        result = google_api.get_recent_photos(
+        # First check if session has media items
+        session_info = picker_api.get_session(access_token, session_id)
+        if not session_info.get('mediaItemsSet', False):
+            return jsonify({
+                'error': 'No media items selected',
+                'details': 'User has not completed photo selection yet'
+            }), 400
+        
+        # Get selected media items
+        result = picker_api.list_media_items(
             access_token=access_token,
+            session_id=session_id,
             page_size=page_size,
             page_token=page_token
         )
@@ -317,9 +285,9 @@ def recent_photos():
         return jsonify(result)
         
     except Exception as e:
-        logger.error(f"Error getting recent photos: {e}")
+        logger.error(f"Error getting selected photos: {e}")
         return jsonify({
-            'error': 'Failed to get recent photos',
+            'error': 'Failed to get selected photos',
             'details': str(e)
         }), 500
 
@@ -328,16 +296,7 @@ def download_photos():
     """
     Download selected photos and add to conversion queue
     
-    JSON payload:
-        {
-            "photos": [
-                {
-                    "id": "photo_id",
-                    "baseUrl": "photo_base_url", 
-                    "filename": "photo_filename"
-                }
-            ]
-        }
+    This endpoint works with photos selected via the Picker API
         
     Returns:
         JSON with download results
@@ -348,6 +307,13 @@ def download_photos():
             'details': 'Please authenticate with Google Photos first'
         }), 401
     
+    session_id = session.get('picker_session_id')
+    if not session_id:
+        return jsonify({
+            'error': 'No active session',
+            'details': 'No picking session found. Create a session first.'
+        }), 400
+    
     try:
         access_token = google_auth.get_access_token()
         if not access_token:
@@ -356,102 +322,56 @@ def download_photos():
                 'details': 'Authentication expired or invalid'
             }), 401
         
-        # Get request data
-        data = request.get_json()
-        if not data or 'photos' not in data:
+        # Get all selected photos from the session
+        result = picker_api.list_media_items(access_token, session_id)
+        photos = result.get('photos', [])
+        
+        if not photos:
             return jsonify({
-                'error': 'Invalid request',
-                'details': 'Missing photos array in request body'
+                'error': 'No photos to download',
+                'details': 'No photos selected in current session'
             }), 400
         
-        photos_to_download = data['photos']
-        if not photos_to_download:
-            return jsonify({
-                'error': 'No photos specified',
-                'details': 'Photos array is empty'
-            }), 400
+        # Import download functionality
+        from ..google_photos.downloader import GooglePhotosDownloader
+        from google.oauth2.credentials import Credentials
         
-        # Download photos and add to conversion queue
-        from flask import current_app
-        controller = current_app.epaper_controller
-        if not controller:
-            return jsonify({
-                'error': 'Controller not available',
-                'details': 'ePaper controller not initialized'
-            }), 500
+        # Create credentials object for downloader
+        tokens = session.get('google_tokens', {})
+        credentials = Credentials(
+            token=access_token,
+            refresh_token=tokens.get('refresh_token'),
+            client_id=google_auth.credentials.get('client_id'),
+            client_secret=google_auth.credentials.get('client_secret'),
+            token_uri=google_auth.oauth_config['token_uri']
+        )
         
-        downloaded_photos = []
-        failed_downloads = []
+        # Download photos
+        downloader = GooglePhotosDownloader(credentials)
+        downloaded_files = []
         
-        for photo in photos_to_download:
-            try:
-                photo_id = photo.get('id')
-                base_url = photo.get('baseUrl')
-                filename = photo.get('filename', f"google_photo_{photo_id}.jpg")
-                
-                if not photo_id or not base_url:
-                    failed_downloads.append({
-                        'photo': photo,
-                        'error': 'Missing photo ID or base URL'
-                    })
-                    continue
-                
-                # Download photo data
-                photo_data = google_api.download_photo(access_token, photo_id, base_url)
-                
-                # Save to pic-raw directory
-                import os
-                from pathlib import Path
-                
-                # Ensure safe filename
-                safe_filename = "".join(c for c in filename if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
-                if not safe_filename.lower().endswith(('.jpg', '.jpeg', '.png')):
-                    safe_filename += '.jpg'
-                
-                # Handle duplicate filenames
-                file_path = controller.source_dir / safe_filename
-                counter = 1
-                original_path = file_path
-                while file_path.exists():
-                    name_parts = original_path.stem, counter, original_path.suffix
-                    file_path = original_path.parent / f"{name_parts[0]}_{name_parts[1]}{name_parts[2]}"
-                    counter += 1
-                
-                # Write photo data to file
-                with open(file_path, 'wb') as f:
-                    f.write(photo_data)
-                
-                # Add to conversion queue if available
-                queue_id = None
-                if controller.conversion_queue:
-                    queue_id = controller.conversion_queue.add_file(file_path)
-                
-                downloaded_photos.append({
-                    'photo_id': photo_id,
-                    'filename': file_path.name,
-                    'path': str(file_path),
-                    'size': len(photo_data),
-                    'queue_id': queue_id
-                })
-                
-                logger.info(f"Downloaded Google Photo: {file_path.name}")
-                
-            except Exception as e:
-                logger.error(f"Failed to download photo {photo.get('id', 'unknown')}: {e}")
-                failed_downloads.append({
-                    'photo': photo,
-                    'error': str(e)
-                })
+        for photo in photos:
+            # Convert to expected format for downloader
+            media_item = {
+                'id': photo['id'],
+                'filename': photo['filename'],
+                'mediaFile': {
+                    'baseUrl': photo['baseUrl'],
+                    'mimeType': photo['mimeType']
+                }
+            }
+            
+            file_path = downloader.download_media_item(media_item)
+            if file_path:
+                downloaded_files.append(file_path)
+        
+        logger.info(f"Downloaded {len(downloaded_files)} photos from Google Photos")
         
         return jsonify({
             'success': True,
-            'downloaded': downloaded_photos,
-            'failed': failed_downloads,
-            'summary': {
-                'total_requested': len(photos_to_download),
-                'successful': len(downloaded_photos),
-                'failed': len(failed_downloads)
-            }
+            'downloaded_count': len(downloaded_files),
+            'failed_count': len(photos) - len(downloaded_files),
+            'files': downloaded_files
         })
         
     except Exception as e:

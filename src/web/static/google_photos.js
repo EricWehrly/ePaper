@@ -129,29 +129,213 @@ class GooglePhotosManager {
     }
 
     async loadRecentPhotos() {
-        console.log('Loading recent photos...');
-        const grid = document.getElementById('recentPhotosGrid');
-        if (!grid) return;
+        console.log('Loading photos using Picker API...');
+        const recentPhotosGrid = document.getElementById('recentPhotosGrid');
+        
+        if (!recentPhotosGrid) return;
+        
+        // Show picker interface instead of loading photos directly
+        recentPhotosGrid.innerHTML = `
+            <div class="picker-interface">
+                <div class="picker-info">
+                    <h4>Select Photos from Google Photos</h4>
+                    <p>Click the button below to open Google Photos and select photos to download.</p>
+                    <button id="openPickerBtn" class="ctl-btn control">Select Photos</button>
+                </div>
+                <div id="pickerStatus" style="display: none;">
+                    <p>Waiting for photo selection...</p>
+                    <div class="loading-spinner"></div>
+                </div>
+                <div id="selectedPhotosContainer" style="display: none;">
+                    <h4>Selected Photos</h4>
+                    <div id="selectedPhotosGrid" class="photos-grid"></div>
+                    <button id="downloadSelectedBtn" class="ctl-btn control">Download Selected Photos</button>
+                </div>
+            </div>
+        `;
+        
+        // Add event listener for picker button
+        const openPickerBtn = document.getElementById('openPickerBtn');
+        if (openPickerBtn) {
+            openPickerBtn.addEventListener('click', () => this.openPhotoPicker());
+        }
+        
+        // Add event listener for download button
+        const downloadBtn = document.getElementById('downloadSelectedBtn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => this.downloadSelectedPhotos());
+        }
+    }
+
+    async loadAlbums() {
+        console.log('Albums not available with Picker API...');
+        const albumsList = document.getElementById('albumsList');
+        
+        if (!albumsList) return;
+        
+        albumsList.innerHTML = `
+            <div class="picker-info">
+                <h4>Photo Selection</h4>
+                <p>The new Google Photos integration uses the Picker API for secure photo selection.</p>
+                <p>Use the "Recent Photos" tab to select photos from your entire Google Photos library.</p>
+            </div>
+        `;
+    }
+
+    async openPhotoPicker() {
+        console.log('Opening Google Photos picker...');
         
         try {
-            grid.innerHTML = '<div class="loading-placeholder">Loading recent photos...</div>';
+            // Create a picker session
+            const response = await fetch('/api/google-photos/create-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             
-            const response = await fetch('/api/google-photos/recent');
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                throw new Error('Failed to create picker session');
             }
             
-            const data = await response.json();
-            console.log('Received recent photos:', data);
+            const result = await response.json();
+            const session = result.session;
             
-            if (data.photos && data.photos.length > 0) {
-                this.renderPhotoGrid(data.photos, 'recentPhotosGrid');
-            } else {
-                grid.innerHTML = '<div class="loading-placeholder">No recent photos found</div>';
-            }
+            console.log('Created picker session:', session.id);
+            
+            // Hide picker button and show status
+            document.getElementById('openPickerBtn').style.display = 'none';
+            document.getElementById('pickerStatus').style.display = 'block';
+            
+            // Open the picker in a new window
+            const pickerWindow = window.open(
+                session.pickerUri + '/autoclose',
+                'GooglePhotosPicker',
+                'width=800,height=600,scrollbars=yes,resizable=yes'
+            );
+            
+            // Start polling for completion
+            this.pollPickerSession(session.id, pickerWindow);
+            
         } catch (error) {
-            console.error('Failed to load recent photos:', error);
-            grid.innerHTML = '<div class="loading-placeholder">Failed to load recent photos. Please try again.</div>';
+            console.error('Failed to open picker:', error);
+            alert('Failed to open photo picker: ' + error.message);
+        }
+    }
+
+    async pollPickerSession(sessionId, pickerWindow) {
+        const maxAttempts = 60; // 5 minutes at 5-second intervals
+        let attempts = 0;
+        
+        const poll = async () => {
+            attempts++;
+            
+            try {
+                const response = await fetch('/api/google-photos/session-status');
+                if (response.ok) {
+                    const result = await response.json();
+                    const session = result.session;
+                    
+                    if (session.mediaItemsSet) {
+                        // User completed selection
+                        console.log('Photo selection completed!');
+                        if (pickerWindow && !pickerWindow.closed) {
+                            pickerWindow.close();
+                        }
+                        
+                        // Hide status and load selected photos
+                        document.getElementById('pickerStatus').style.display = 'none';
+                        await this.loadSelectedPhotos();
+                        return;
+                    }
+                }
+                
+                // Check if picker window was closed without selection
+                if (pickerWindow && pickerWindow.closed) {
+                    console.log('Picker window was closed');
+                    document.getElementById('pickerStatus').style.display = 'none';
+                    document.getElementById('openPickerBtn').style.display = 'block';
+                    return;
+                }
+                
+                // Continue polling if under limit
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, 5000); // Poll every 5 seconds
+                } else {
+                    console.log('Polling timeout reached');
+                    document.getElementById('pickerStatus').style.display = 'none';
+                    document.getElementById('openPickerBtn').style.display = 'block';
+                    alert('Photo selection timed out. Please try again.');
+                }
+                
+            } catch (error) {
+                console.error('Error polling session:', error);
+                setTimeout(poll, 5000); // Retry on error
+            }
+        };
+        
+        // Start polling
+        setTimeout(poll, 2000); // Initial delay
+    }
+
+    async loadSelectedPhotos() {
+        console.log('Loading selected photos...');
+        
+        try {
+            const response = await fetch('/api/google-photos/selected-photos');
+            
+            if (!response.ok) {
+                throw new Error('Failed to load selected photos');
+            }
+            
+            const result = await response.json();
+            const photos = result.photos || [];
+            
+            console.log('Loaded selected photos:', photos.length);
+            
+            // Show selected photos container
+            const container = document.getElementById('selectedPhotosContainer');
+            const grid = document.getElementById('selectedPhotosGrid');
+            
+            if (container && grid) {
+                container.style.display = 'block';
+                this.renderPhotoGrid(photos, 'selectedPhotosGrid');
+            }
+            
+        } catch (error) {
+            console.error('Failed to load selected photos:', error);
+            alert('Failed to load selected photos: ' + error.message);
+        }
+    }
+
+    async downloadSelectedPhotos() {
+        console.log('Downloading selected photos...');
+        
+        try {
+            const response = await fetch('/api/google-photos/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to download photos');
+            }
+            
+            const result = await response.json();
+            
+            console.log('Download result:', result);
+            alert(`Downloaded ${result.downloaded_count} photos successfully!`);
+            
+            // Refresh the main images grid
+            if (window.refreshImages) {
+                window.refreshImages();
+            }
+            
+        } catch (error) {
+            console.error('Failed to download photos:', error);
+            alert('Failed to download photos: ' + error.message);
         }
     }
 
@@ -392,11 +576,48 @@ class GooglePhotosManager {
     async handleAuth() {
         console.log('Handling auth...');
         if (this.isAuthenticated) {
-            console.log('Disconnecting...');
-            window.location.href = '/api/google-photos/disconnect';
+            await this.handleDisconnect();
         } else {
             console.log('Connecting...');
             window.location.href = '/api/google-photos/auth';
+        }
+    }
+
+    async handleDisconnect() {
+        console.log('Disconnecting from Google Photos...');
+        try {
+            const response = await fetch('/api/google-photos/disconnect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Disconnected successfully:', result.message);
+                
+                // Update authentication state
+                this.isAuthenticated = false;
+                
+                // Refresh the authentication status
+                await this.checkAuthStatus();
+                
+                // Hide Google Photos content
+                const content = document.getElementById('googlePhotosContent');
+                if (content) content.style.display = 'none';
+                
+                // Show success message
+                alert('Successfully signed out of Google Photos');
+                
+            } else {
+                const error = await response.json();
+                console.error('Disconnect failed:', error);
+                alert('Failed to sign out: ' + (error.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Disconnect request failed:', error);
+            alert('Failed to sign out: Network error');
         }
     }
 
