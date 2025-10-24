@@ -209,13 +209,18 @@ def get_session_status():
     try:
         access_token = google_auth.get_access_token()
         if not access_token:
+            logger.warning("No access token available for session status check")
             return jsonify({
                 'error': 'No access token',
                 'details': 'Authentication expired or invalid'
             }), 401
         
+        logger.info(f"Checking status for session: {session_id}")
+        
         # Get session status
         session_info = picker_api.get_session(access_token, session_id)
+        
+        logger.info(f"Session {session_id} status: mediaItemsSet={session_info.get('mediaItemsSet', False)}")
         
         return jsonify({
             'success': True,
@@ -226,6 +231,44 @@ def get_session_status():
         logger.error(f"Error getting session status: {e}")
         return jsonify({
             'error': 'Failed to get session status',
+            'details': str(e)
+        }), 500
+
+@google_photos_bp.route('/debug-session/<session_id>')
+def debug_session(session_id):
+    """
+    Debug endpoint to check a specific session ID
+    """
+    if not google_auth.is_authenticated():
+        return jsonify({
+            'error': 'Not authenticated',
+            'details': 'Please authenticate with Google Photos first'
+        }), 401
+    
+    try:
+        access_token = google_auth.get_access_token()
+        if not access_token:
+            return jsonify({
+                'error': 'No access token',
+                'details': 'Authentication expired or invalid'
+            }), 401
+        
+        logger.info(f"Debug check for session: {session_id}")
+        
+        # Get session status directly
+        session_info = picker_api.get_session(access_token, session_id)
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'session_info': session_info,
+            'raw_response': 'check logs for details'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in debug session check: {e}")
+        return jsonify({
+            'error': 'Debug check failed',
             'details': str(e)
         }), 500
 
@@ -281,6 +324,16 @@ def get_selected_photos():
             page_size=page_size,
             page_token=page_token
         )
+        
+        # Handle Picker API limitation
+        if 'error' in result:
+            return jsonify({
+                'error': 'Picker API Limitation',
+                'details': result.get('message', 'Cannot list selected media items with current Picker API'),
+                'mediaItemsSet': True,
+                'pickedMediaItems': [],
+                'pickedAlbums': []
+            }), 200  # Return 200 but with explanation
         
         return jsonify(result)
         

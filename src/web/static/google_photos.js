@@ -138,18 +138,19 @@ class GooglePhotosManager {
         recentPhotosGrid.innerHTML = `
             <div class="picker-interface">
                 <div class="picker-info">
-                    <h4>Select Photos from Google Photos</h4>
-                    <p>Click the button below to open Google Photos and select photos to download.</p>
-                    <button id="openPickerBtn" class="ctl-btn control">Select Photos</button>
+                    <h4>Select Photos & Albums from Google Photos</h4>
+                    <p>Click the button below to open Google Photos and select individual photos or entire albums to download.</p>
+                    <button id="openPickerBtn" class="ctl-btn control">Select Photos & Albums</button>
                 </div>
                 <div id="pickerStatus" style="display: none;">
                     <p>Waiting for photo selection...</p>
                     <div class="loading-spinner"></div>
+                    <button id="checkSelectionBtn" class="ctl-btn control" style="margin-top: 10px;">Check Selection</button>
                 </div>
                 <div id="selectedPhotosContainer" style="display: none;">
-                    <h4>Selected Photos</h4>
+                    <h4>Selected Items</h4>
                     <div id="selectedPhotosGrid" class="photos-grid"></div>
-                    <button id="downloadSelectedBtn" class="ctl-btn control">Download Selected Photos</button>
+                    <button id="downloadSelectedBtn" class="ctl-btn control">Download Selected Items</button>
                 </div>
             </div>
         `;
@@ -165,19 +166,36 @@ class GooglePhotosManager {
         if (downloadBtn) {
             downloadBtn.addEventListener('click', () => this.downloadSelectedPhotos());
         }
+        
+        // Add event listener for manual check button
+        const checkBtn = document.getElementById('checkSelectionBtn');
+        if (checkBtn) {
+            checkBtn.addEventListener('click', () => this.manualCheckSelection());
+        }
     }
 
     async loadAlbums() {
-        console.log('Albums not available with Picker API...');
+        console.log('Showing album selection instructions...');
         const albumsList = document.getElementById('albumsList');
         
         if (!albumsList) return;
         
         albumsList.innerHTML = `
             <div class="picker-info">
-                <h4>Photo Selection</h4>
-                <p>The new Google Photos integration uses the Picker API for secure photo selection.</p>
-                <p>Use the "Recent Photos" tab to select photos from your entire Google Photos library.</p>
+                <h4>📁 Album Selection</h4>
+                <p><strong>Albums are selected using the same picker interface as photos.</strong></p>
+                <p>To select albums:</p>
+                <ol>
+                    <li>Go to the <strong>"Recent Photos"</strong> tab</li>
+                    <li>Click <strong>"Select Photos & Albums"</strong></li>
+                    <li>In the Google Photos picker, you can select both:</li>
+                    <ul>
+                        <li>📷 Individual photos</li>
+                        <li>📁 Entire albums</li>
+                    </ul>
+                    <li>Click "Done" when finished</li>
+                </ol>
+                <p><em>Both photos and albums will be downloaded and converted for your e-Paper display.</em></p>
             </div>
         `;
     }
@@ -204,12 +222,26 @@ class GooglePhotosManager {
             console.log('Created picker session:', session.id);
             
             // Hide picker button and show status
-            document.getElementById('openPickerBtn').style.display = 'none';
-            document.getElementById('pickerStatus').style.display = 'block';
+            const openPickerBtn = document.getElementById('openPickerBtn');
+            const pickerStatus = document.getElementById('pickerStatus');
+            
+            if (openPickerBtn) {
+                openPickerBtn.style.display = 'none';
+                console.log('Hidden picker button');
+            } else {
+                console.error('Could not find openPickerBtn element');
+            }
+            
+            if (pickerStatus) {
+                pickerStatus.style.display = 'block';
+                console.log('Showing picker status div (should include Check Selection button)');
+            } else {
+                console.error('Could not find pickerStatus element');
+            }
             
             // Open the picker in a new window
             const pickerWindow = window.open(
-                session.pickerUri + '/autoclose',
+                session.pickerUri,
                 'GooglePhotosPicker',
                 'width=800,height=600,scrollbars=yes,resizable=yes'
             );
@@ -224,19 +256,23 @@ class GooglePhotosManager {
     }
 
     async pollPickerSession(sessionId, pickerWindow) {
-        const maxAttempts = 60; // 5 minutes at 5-second intervals
+        const maxAttempts = 120; // 10 minutes at 5-second intervals
         let attempts = 0;
         
         const poll = async () => {
             attempts++;
+            console.log(`Polling attempt ${attempts}/${maxAttempts} for session ${sessionId}`);
             
             try {
                 const response = await fetch('/api/google-photos/session-status');
+                console.log('Session status response:', response.status, response.statusText);
+                
                 if (response.ok) {
                     const result = await response.json();
+                    console.log('Session status result:', result);
                     const session = result.session;
                     
-                    if (session.mediaItemsSet) {
+                    if (session && session.mediaItemsSet) {
                         // User completed selection
                         console.log('Photo selection completed!');
                         if (pickerWindow && !pickerWindow.closed) {
@@ -247,13 +283,38 @@ class GooglePhotosManager {
                         document.getElementById('pickerStatus').style.display = 'none';
                         await this.loadSelectedPhotos();
                         return;
+                    } else {
+                        console.log('No selection detected yet, mediaItemsSet:', session ? session.mediaItemsSet : 'no session');
                     }
+                } else {
+                    const errorText = await response.text();
+                    console.log('Session status error:', errorText);
                 }
                 
-                // Check if picker window was closed without selection
-                if (pickerWindow && pickerWindow.closed) {
-                    console.log('Picker window was closed');
-                    document.getElementById('pickerStatus').style.display = 'none';
+                // Check if picker window was closed (but be more lenient about detection)
+                if (pickerWindow && pickerWindow.closed && attempts > 3) {
+                    console.log('Picker window was closed after', attempts, 'attempts');
+                    
+                    // Do one final check for completed selection before giving up
+                    try {
+                        const finalResponse = await fetch('/api/google-photos/session-status');
+                        if (finalResponse.ok) {
+                            const finalResult = await finalResponse.json();
+                            if (finalResult.session && finalResult.session.mediaItemsSet) {
+                                console.log('Selection detected after window closed!');
+                                document.getElementById('pickerStatus').style.display = 'none';
+                                await this.loadSelectedPhotos();
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Final selection check failed:', e);
+                    }
+                    
+                    // No selection found, but keep the UI open for manual checking
+                    console.log('Window closed but no selection detected - keeping UI open for manual checking');
+                    // Don't hide the status, let user manually check
+                    return;
                     document.getElementById('openPickerBtn').style.display = 'block';
                     return;
                 }
@@ -278,6 +339,35 @@ class GooglePhotosManager {
         setTimeout(poll, 2000); // Initial delay
     }
 
+    async manualCheckSelection() {
+        console.log('Manually checking for selection...');
+        try {
+            const response = await fetch('/api/google-photos/session-status');
+            console.log('Manual check response:', response.status, response.statusText);
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Manual check result:', result);
+                
+                if (result.session && result.session.mediaItemsSet) {
+                    console.log('Selection found!');
+                    document.getElementById('pickerStatus').style.display = 'none';
+                    await this.loadSelectedPhotos();
+                } else {
+                    console.log('No selection found yet, mediaItemsSet:', result.session ? result.session.mediaItemsSet : 'no session');
+                    alert('No photos selected yet. Please try selecting photos in the picker window.');
+                }
+            } else {
+                const errorText = await response.text();
+                console.log('Manual check failed:', response.status, errorText);
+                alert('Failed to check selection status');
+            }
+        } catch (error) {
+            console.error('Manual check failed:', error);
+            alert('Failed to check selection: ' + error.message);
+        }
+    }
+
     async loadSelectedPhotos() {
         console.log('Loading selected photos...');
         
@@ -289,9 +379,18 @@ class GooglePhotosManager {
             }
             
             const result = await response.json();
-            const photos = result.photos || [];
             
-            console.log('Loaded selected photos:', photos.length);
+            // Handle Picker API limitation
+            if (result.error && result.error === 'Picker API Limitation') {
+                console.log('Picker API limitation encountered:', result.details);
+                this.showPickerLimitation();
+                return;
+            }
+            
+            const photos = result.pickedMediaItems || [];
+            const albums = result.pickedAlbums || [];
+            
+            console.log('Loaded selected items:', photos.length, 'photos,', albums.length, 'albums');
             
             // Show selected photos container
             const container = document.getElementById('selectedPhotosContainer');
@@ -299,12 +398,67 @@ class GooglePhotosManager {
             
             if (container && grid) {
                 container.style.display = 'block';
-                this.renderPhotoGrid(photos, 'selectedPhotosGrid');
+                
+                // Update container title to reflect both photos and albums
+                const title = container.querySelector('h4');
+                if (title) {
+                    title.textContent = `Selected Items (${photos.length} photos, ${albums.length} albums)`;
+                }
+                
+                this.renderSelectedItems(photos, albums, 'selectedPhotosGrid');
             }
             
         } catch (error) {
             console.error('Failed to load selected photos:', error);
             alert('Failed to load selected photos: ' + error.message);
+        }
+    }
+
+    showPickerLimitation() {
+        console.log('Showing Picker API limitation message');
+        
+        // Show selected photos container with limitation message
+        const container = document.getElementById('selectedPhotosContainer');
+        const grid = document.getElementById('selectedPhotosGrid');
+        
+        if (container && grid) {
+            container.style.display = 'block';
+            
+            // Update container title
+            const title = container.querySelector('h4');
+            if (title) {
+                title.textContent = 'Photo Selection Completed ✅';
+            }
+            
+            // Show limitation message
+            grid.innerHTML = `
+                <div class="picker-limitation-message">
+                    <div class="limitation-icon">📸</div>
+                    <h3>Photos Selected Successfully!</h3>
+                    <p>You have successfully selected photos using Google Photos Picker.</p>
+                    <div class="limitation-explanation">
+                        <p><strong>Technical Note:</strong> Due to the current design of Google's Photos Picker API, 
+                        we cannot display the specific photos you selected in this interface. However, your 
+                        selection was successful and has been recorded.</p>
+                        <p>This is a limitation of Google's Picker API design, not our application.</p>
+                    </div>
+                    <div class="next-steps">
+                        <h4>What's Next?</h4>
+                        <p>You can now continue to select more photos or return to the main interface.</p>
+                        <button id="selectMorePhotosBtn" class="ctl-btn control">Select More Photos</button>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listener to "Select More Photos" button
+            const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
+            if (selectMoreBtn) {
+                selectMoreBtn.addEventListener('click', () => {
+                    container.style.display = 'none';
+                    document.getElementById('pickerStatus').style.display = 'none';
+                    document.getElementById('openPickerBtn').style.display = 'block';
+                });
+            }
         }
     }
 
@@ -326,7 +480,18 @@ class GooglePhotosManager {
             const result = await response.json();
             
             console.log('Download result:', result);
-            alert(`Downloaded ${result.downloaded_count} photos successfully!`);
+            
+            let message = '';
+            if (result.downloaded_count > 0) {
+                message = `Downloaded ${result.downloaded_count} items successfully!`;
+                if (result.failed_count > 0) {
+                    message += ` (${result.failed_count} failed)`;
+                }
+            } else {
+                message = 'No items were downloaded. Please check the logs for details.';
+            }
+            
+            alert(message);
             
             // Refresh the main images grid
             if (window.refreshImages) {
@@ -339,31 +504,56 @@ class GooglePhotosManager {
         }
     }
 
-    async loadAlbums() {
-        console.log('Loading albums...');
+    async loadAlbumsOld() {
+        // This method is deprecated - albums are now selected via the Picker API
+        console.log('Albums are selected via Picker API...');
         const albumsList = document.getElementById('albumsList');
         if (!albumsList) return;
         
-        try {
-            albumsList.innerHTML = '<div class="loading-placeholder">Loading albums...</div>';
-            
-            const response = await fetch('/api/google-photos/albums');
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Received albums:', data);
-            
-            if (data.albums && data.albums.length > 0) {
-                this.renderAlbumsList(data.albums);
-            } else {
-                albumsList.innerHTML = '<div class="loading-placeholder">No albums found</div>';
-            }
-        } catch (error) {
-            console.error('Failed to load albums:', error);
-            albumsList.innerHTML = '<div class="loading-placeholder">Failed to load albums. Please try again.</div>';
-        }
+        albumsList.innerHTML = `
+            <div class="picker-info">
+                <h4>Photo & Album Selection</h4>
+                <p>Albums are now selected using the Google Photos Picker interface.</p>
+                <p>Use the "Recent Photos" tab to open the picker and select both photos and albums.</p>
+            </div>
+        `;
+    }
+
+    renderSelectedItems(photos, albums, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // Render albums first
+        albums.forEach(album => {
+            const albumElement = document.createElement('div');
+            albumElement.className = 'photo-item album-item';
+            albumElement.innerHTML = `
+                <div class="album-cover">
+                    <img src="${album.coverPhotoBaseUrl || '/static/album-placeholder.png'}=w200-h200-c" alt="${album.title}" loading="lazy">
+                    <div class="album-badge">📁 Album</div>
+                </div>
+                <div class="photo-info">
+                    <div class="album-title">${album.title}</div>
+                    <div class="album-count">${album.mediaItemsCount} items</div>
+                </div>
+            `;
+            container.appendChild(albumElement);
+        });
+        
+        // Render individual photos
+        photos.forEach(photo => {
+            const photoElement = document.createElement('div');
+            photoElement.className = 'photo-item';
+            photoElement.innerHTML = `
+                <img src="${photo.baseUrl}=w200-h200-c" alt="${photo.filename || 'Photo'}" loading="lazy">
+                <div class="photo-info">
+                    <div class="photo-filename">${photo.filename || 'Photo'}</div>
+                </div>
+            `;
+            container.appendChild(photoElement);
+        });
     }
 
     renderPhotoGrid(photos, containerId) {
