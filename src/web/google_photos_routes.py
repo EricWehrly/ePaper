@@ -2,6 +2,7 @@
 Google Photos Picker API routes for web interface
 """
 
+import json
 import logging
 import requests
 from flask import Blueprint, jsonify, session, request
@@ -341,6 +342,294 @@ def get_selected_photos():
         logger.error(f"Error getting selected photos: {e}")
         return jsonify({
             'error': 'Failed to get selected photos',
+            'details': str(e)
+        }), 500
+
+@google_photos_bp.route('/picker-callback', methods=['POST'])
+def picker_callback():
+    """
+    Receive selection data from Google Photos Picker callback
+    
+    This endpoint receives the actual selection data when photos are selected
+    in the picker, bypassing the API limitation of listing media items later.
+    
+    Returns:
+        JSON confirmation of received selection data
+    """
+    logger.info("Received picker callback")
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'error': 'No data received',
+                'details': 'Request body must contain JSON data'
+            }), 400
+        
+        session_id = data.get('sessionId')
+        selection_data = data.get('selectionData')
+        
+        if not session_id:
+            return jsonify({
+                'error': 'Missing session ID',
+                'details': 'sessionId is required'
+            }), 400
+        
+        if not selection_data:
+            return jsonify({
+                'error': 'Missing selection data',
+                'details': 'selectionData is required'
+            }), 400
+        
+        logger.info(f"Picker callback for session {session_id}")
+        logger.info(f"Selection data received: {json.dumps(selection_data, indent=2)}")
+        
+        # Store the selection data in the session for later processing
+        session['picker_selection_data'] = selection_data
+        session['picker_selection_received'] = True
+        session.modified = True
+        
+        # TODO: Process the selection data to extract media items
+        # For now, just log what we received so we can see the structure
+        
+        return jsonify({
+            'success': True,
+            'message': 'Selection data received successfully',
+            'sessionId': session_id,
+            'dataReceived': True,
+            'selectionSummary': {
+                'keys': list(selection_data.keys()) if isinstance(selection_data, dict) else 'not_dict',
+                'type': str(type(selection_data).__name__)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error processing picker callback: {e}")
+        return jsonify({
+            'error': 'Failed to process callback',
+            'details': str(e)
+        }), 500
+
+@google_photos_bp.route('/recent-photos')
+def get_recent_photos():
+    """
+    Get recent photos from Google Photos Library API
+    
+    This provides an alternative way to access photos when the Picker API
+    cannot provide the exact selection data.
+    """
+    if not google_auth.is_authenticated():
+        return jsonify({
+            'error': 'Not authenticated',
+            'details': 'Please authenticate with Google Photos first'
+        }), 401
+    
+    try:
+        access_token = google_auth.get_access_token()
+        if not access_token:
+            return jsonify({
+                'error': 'No access token',
+                'details': 'Authentication expired or invalid'
+            }), 401
+        
+        limit = request.args.get('limit', '50', type=int)
+        limit = min(limit, 100)  # Cap at 100
+        
+        logger.info(f"Getting recent photos from Google Photos Library API (limit: {limit})")
+        
+        # Use Google Photos Library API to get recent photos
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        params = {
+            'pageSize': limit
+        }
+        
+        response = requests.get(
+            'https://photoslibrary.googleapis.com/v1/mediaItems',
+            headers=headers,
+            params=params
+        )
+        
+        if not response.ok:
+            logger.error(f"Library API error: {response.status_code} - {response.text}")
+            return jsonify({
+                'error': 'Failed to get photos from library',
+                'details': f'API returned {response.status_code}'
+            }), response.status_code
+        
+        data = response.json()
+        photos = data.get('mediaItems', [])
+        
+        logger.info(f"Retrieved {len(photos)} photos from Google Photos Library API")
+        
+        return jsonify({
+            'success': True,
+            'photos': photos,
+            'count': len(photos),
+            'source': 'library_api'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting recent photos: {e}")
+        return jsonify({
+            'error': 'Failed to get recent photos',
+            'details': str(e)
+        }), 500
+
+@google_photos_bp.route('/library-photos')
+def get_library_photos():
+    """
+    Get photos from Google Photos Library API with optional search
+    """
+    if not google_auth.is_authenticated():
+        return jsonify({
+            'error': 'Not authenticated',
+            'details': 'Please authenticate with Google Photos first'
+        }), 401
+    
+    try:
+        access_token = google_auth.get_access_token()
+        if not access_token:
+            return jsonify({
+                'error': 'No access token',
+                'details': 'Authentication expired or invalid'
+            }), 401
+        
+        limit = request.args.get('limit', '100', type=int)
+        limit = min(limit, 100)  # Cap at 100
+        
+        logger.info(f"Getting library photos (limit: {limit})")
+        
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        params = {
+            'pageSize': limit
+        }
+        
+        response = requests.get(
+            'https://photoslibrary.googleapis.com/v1/mediaItems',
+            headers=headers,
+            params=params
+        )
+        
+        if not response.ok:
+            logger.error(f"Library API error: {response.status_code} - {response.text}")
+            return jsonify({
+                'error': 'Failed to get library photos',
+                'details': f'API returned {response.status_code}'
+            }), response.status_code
+        
+        data = response.json()
+        photos = data.get('mediaItems', [])
+        
+        logger.info(f"Retrieved {len(photos)} photos from library")
+        
+        return jsonify({
+            'success': True,
+            'photos': photos,
+            'count': len(photos),
+            'source': 'library_api'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting library photos: {e}")
+        return jsonify({
+            'error': 'Failed to get library photos',
+            'details': str(e)
+        }), 500
+
+@google_photos_bp.route('/download-library-photos', methods=['POST'])
+def download_library_photos():
+    """
+    Download specific photos by ID from Google Photos Library API
+    """
+    if not google_auth.is_authenticated():
+        return jsonify({
+            'error': 'Not authenticated',
+            'details': 'Please authenticate with Google Photos first'
+        }), 401
+    
+    try:
+        data = request.get_json()
+        if not data or 'photoIds' not in data:
+            return jsonify({
+                'error': 'Missing photo IDs',
+                'details': 'Request must include photoIds array'
+            }), 400
+        
+        photo_ids = data['photoIds']
+        if not isinstance(photo_ids, list) or len(photo_ids) == 0:
+            return jsonify({
+                'error': 'Invalid photo IDs',
+                'details': 'photoIds must be a non-empty array'
+            }), 400
+        
+        logger.info(f"Downloading {len(photo_ids)} photos from library")
+        
+        access_token = google_auth.get_access_token()
+        if not access_token:
+            return jsonify({
+                'error': 'No access token',
+                'details': 'Authentication expired or invalid'
+            }), 401
+        
+        # Get photo details and download them
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        downloaded_photos = []
+        failed_downloads = []
+        
+        for photo_id in photo_ids:
+            try:
+                # Get photo details
+                response = requests.get(
+                    f'https://photoslibrary.googleapis.com/v1/mediaItems/{photo_id}',
+                    headers=headers
+                )
+                
+                if response.ok:
+                    photo_data = response.json()
+                    downloaded_photos.append({
+                        'id': photo_id,
+                        'filename': photo_data.get('filename', f'photo_{photo_id}'),
+                        'baseUrl': photo_data.get('baseUrl'),
+                        'status': 'ready_for_download'
+                    })
+                else:
+                    failed_downloads.append({
+                        'id': photo_id,
+                        'error': f'Failed to get photo details: {response.status_code}'
+                    })
+                    
+            except Exception as e:
+                failed_downloads.append({
+                    'id': photo_id,
+                    'error': str(e)
+                })
+        
+        logger.info(f"Prepared {len(downloaded_photos)} photos for download, {len(failed_downloads)} failed")
+        
+        return jsonify({
+            'success': True,
+            'downloaded': downloaded_photos,
+            'failed': failed_downloads,
+            'total_requested': len(photo_ids),
+            'total_ready': len(downloaded_photos)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error downloading library photos: {e}")
+        return jsonify({
+            'error': 'Failed to download photos',
             'details': str(e)
         }), 500
 

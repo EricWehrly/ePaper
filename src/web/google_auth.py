@@ -38,6 +38,7 @@ class GooglePhotosAuth:
         }
         self.scopes = [
             'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
+            'https://www.googleapis.com/auth/photoslibrary.readonly',
             'openid',
             'email'
         ]

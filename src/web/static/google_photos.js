@@ -209,7 +209,11 @@ class GooglePhotosManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({
+                    // Include callback configuration
+                    includeCallback: true
+                })
             });
             
             if (!response.ok) {
@@ -239,20 +243,260 @@ class GooglePhotosManager {
                 console.error('Could not find pickerStatus element');
             }
             
-            // Open the picker in a new window
+            // Setup callback to capture selection data
+            this.setupPickerCallback(session.id);
+            
+            // Try both approaches: popup window AND iframe
+            console.log('Trying picker in popup window...');
             const pickerWindow = window.open(
                 session.pickerUri,
                 'GooglePhotosPicker',
                 'width=800,height=600,scrollbars=yes,resizable=yes'
             );
             
-            // Start polling for completion
+            // Also try embedding in an iframe for better callback handling
+            console.log('Also trying picker in iframe...');
+            this.createPickerIframe(session.pickerUri, session.id);
+            
+            // Start polling for completion (but now we'll also have callback data)
             this.pollPickerSession(session.id, pickerWindow);
             
         } catch (error) {
             console.error('Failed to open picker:', error);
             alert('Failed to open photo picker: ' + error.message);
         }
+    }
+
+    setupPickerCallback(sessionId) {
+        console.log('Setting up picker callback for session:', sessionId);
+        
+        // Listen for messages from the picker window/iframe
+        const messageHandler = (event) => {
+            console.log('Received message from picker:', event);
+            console.log('Message origin:', event.origin);
+            console.log('Message data type:', typeof event.data);
+            console.log('Raw message data:', event.data);
+            
+            // Be more permissive with origins for testing
+            if (!event.origin.includes('google') && event.origin !== window.location.origin) {
+                console.log('Ignoring message from origin:', event.origin);
+                return;
+            }
+            
+            try {
+                let data = event.data;
+                if (typeof data === 'string') {
+                    try {
+                        data = JSON.parse(data);
+                    } catch (e) {
+                        console.log('Message is string but not JSON:', data);
+                        // Keep as string
+                    }
+                }
+                
+                console.log('Processed picker message data:', data);
+                
+                // Check for any kind of selection-related data
+                if (data && (
+                    data.type === 'PICKER_SELECTION' || 
+                    data.selectedMedia || 
+                    data.mediaItems ||
+                    data.photos ||
+                    data.selection ||
+                    (typeof data === 'object' && Object.keys(data).some(key => 
+                        key.toLowerCase().includes('select') || 
+                        key.toLowerCase().includes('media') ||
+                        key.toLowerCase().includes('photo')
+                    ))
+                )) {
+                    console.log('Potential picker selection detected:', data);
+                    this.handlePickerSelection(sessionId, data);
+                    
+                    // Don't remove listener yet - keep listening for more data
+                }
+            } catch (error) {
+                console.error('Error processing picker message:', error);
+            }
+        };
+        
+        // Add event listener for picker callbacks
+        window.addEventListener('message', messageHandler);
+        
+        // Store the handler so we can clean it up later
+        this.currentMessageHandler = messageHandler;
+    }
+
+    createPickerIframe(pickerUri, sessionId) {
+        console.log('Creating picker iframe for session:', sessionId);
+        
+        // Create a container for the iframe
+        const iframeContainer = document.createElement('div');
+        iframeContainer.id = 'pickerIframeContainer';
+        iframeContainer.style.cssText = `
+            position: fixed;
+            top: 10%;
+            left: 10%;
+            width: 80%;
+            height: 80%;
+            background: white;
+            border: 3px solid #007cba;
+            border-radius: 8px;
+            z-index: 10000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            display: none;
+        `;
+        
+        // Create header with close button
+        const header = document.createElement('div');
+        header.style.cssText = `
+            background: #007cba;
+            color: white;
+            padding: 10px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        header.innerHTML = `
+            <span>🖼️ Google Photos Picker (iframe test)</span>
+            <button id="closePickerIframe" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">✕</button>
+        `;
+        
+        // Create iframe
+        const iframe = document.createElement('iframe');
+        iframe.src = pickerUri;
+        iframe.style.cssText = `
+            width: 100%;
+            height: calc(100% - 50px);
+            border: none;
+        `;
+        iframe.id = 'pickerIframe';
+        
+        // Assemble container
+        iframeContainer.appendChild(header);
+        iframeContainer.appendChild(iframe);
+        document.body.appendChild(iframeContainer);
+        
+        // Add close button functionality
+        document.getElementById('closePickerIframe').addEventListener('click', () => {
+            iframeContainer.style.display = 'none';
+        });
+        
+        // Add button to show/hide iframe
+        const toggleButton = document.createElement('button');
+        toggleButton.textContent = '🖼️ Try Picker in iframe';
+        toggleButton.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10001;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        toggleButton.addEventListener('click', () => {
+            iframeContainer.style.display = iframeContainer.style.display === 'none' ? 'block' : 'none';
+        });
+        document.body.appendChild(toggleButton);
+        
+        console.log('Picker iframe created and ready');
+    }
+
+    handlePickerSelection(sessionId, selectionData) {
+        console.log('Processing picker selection for session:', sessionId);
+        console.log('Selection data received:', JSON.stringify(selectionData, null, 2));
+        
+        // Send the selection data to our backend
+        this.sendSelectionToBackend(sessionId, selectionData);
+        
+        // Show the selection in the UI
+        this.displayPickerSelection(selectionData);
+    }
+
+    async sendSelectionToBackend(sessionId, selectionData) {
+        console.log('Sending selection data to backend...');
+        
+        try {
+            const response = await fetch('/api/google-photos/picker-callback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionId: sessionId,
+                    selectionData: selectionData
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to send selection to backend');
+            }
+            
+            const result = await response.json();
+            console.log('Backend received selection:', result);
+            
+        } catch (error) {
+            console.error('Error sending selection to backend:', error);
+        }
+    }
+
+    displayPickerSelection(selectionData) {
+        console.log('Displaying picker selection in UI...');
+        
+        // Show selected photos container
+        const container = document.getElementById('selectedPhotosContainer');
+        const grid = document.getElementById('selectedPhotosGrid');
+        
+        if (!container || !grid) {
+            console.error('Could not find selection display elements');
+            return;
+        }
+        
+        container.style.display = 'block';
+        
+        // Update container title
+        const title = container.querySelector('h4');
+        if (title) {
+            title.textContent = 'Photos Selected via Callback ✅';
+        }
+        
+        // Display the raw selection data for now
+        grid.innerHTML = `
+            <div class="selection-debug">
+                <h3>🎉 Selection Captured Successfully!</h3>
+                <p>Received selection data from Google Photos Picker callback:</p>
+                <pre style="background: #f5f5f5; padding: 20px; border-radius: 8px; overflow-x: auto; font-size: 12px; max-height: 400px;">${JSON.stringify(selectionData, null, 2)}</pre>
+                <div style="margin-top: 20px;">
+                    <button id="processSelectionBtn" class="ctl-btn control">Process Selected Photos</button>
+                    <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-left: 10px;">Select More Photos</button>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners
+        const processBtn = document.getElementById('processSelectionBtn');
+        if (processBtn) {
+            processBtn.addEventListener('click', () => {
+                this.processSelectedPhotos(selectionData);
+            });
+        }
+        
+        const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
+        if (selectMoreBtn) {
+            selectMoreBtn.addEventListener('click', () => {
+                container.style.display = 'none';
+                document.getElementById('pickerStatus').style.display = 'none';
+                document.getElementById('openPickerBtn').style.display = 'block';
+            });
+        }
+    }
+
+    processSelectedPhotos(selectionData) {
+        console.log('Processing selected photos:', selectionData);
+        alert('Photo processing would be implemented here based on the selection data structure we receive!');
     }
 
     async pollPickerSession(sessionId, pickerWindow) {
@@ -383,7 +627,10 @@ class GooglePhotosManager {
             // Handle Picker API limitation
             if (result.error && result.error === 'Picker API Limitation') {
                 console.log('Picker API limitation encountered:', result.details);
-                this.showPickerLimitation();
+                
+                // Try alternative approach using Google Photos Library API
+                console.log('Attempting alternative photo access via Google Photos Library API...');
+                await this.tryAlternativePhotoAccess();
                 return;
             }
             
@@ -831,6 +1078,157 @@ class GooglePhotosManager {
             if (content) content.style.display = 'none';
             btn.textContent = 'Google Photos';
         }
+    }
+
+    async tryAlternativePhotoAccess() {
+        console.log('Attempting to access photos via Google Photos Library API...');
+        
+        try {
+            // Try to get recent photos that might include what was just selected
+            const response = await fetch('/api/google-photos/recent-photos?limit=50');
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Recent photos response:', result);
+                
+                if (result.success && result.photos && result.photos.length > 0) {
+                    console.log(`Found ${result.photos.length} recent photos - this might include selected photos`);
+                    this.displayAlternativePhotos(result.photos);
+                    return;
+                }
+            }
+            
+            // Try to get all photos from library
+            console.log('Trying to get all library photos...');
+            const allPhotosResponse = await fetch('/api/google-photos/library-photos?limit=100');
+            
+            if (allPhotosResponse.ok) {
+                const allPhotosResult = await allPhotosResponse.json();
+                console.log('Library photos response:', allPhotosResult);
+                
+                if (allPhotosResult.success && allPhotosResult.photos && allPhotosResult.photos.length > 0) {
+                    console.log(`Found ${allPhotosResult.photos.length} library photos`);
+                    this.displayAlternativePhotos(allPhotosResult.photos);
+                    return;
+                }
+            }
+            
+            console.log('No alternative photo access methods worked');
+            this.showPickerLimitation(); // Fall back to limitation message
+            
+        } catch (error) {
+            console.error('Alternative photo access failed:', error);
+            this.showPickerLimitation(); // Fall back to limitation message
+        }
+    }
+
+    displayAlternativePhotos(photos) {
+        console.log('Displaying alternative photos from Google Photos Library API');
+        
+        const container = document.getElementById('selectedPhotosContainer');
+        const grid = document.getElementById('selectedPhotosGrid');
+        
+        if (!container || !grid) {
+            console.error('Could not find selection display elements');
+            return;
+        }
+        
+        container.style.display = 'block';
+        
+        // Update container title
+        const title = container.querySelector('h4');
+        if (title) {
+            title.textContent = `📸 Recent Photos from Your Google Photos Library (${photos.length} found)`;
+        }
+        
+        // Create photo grid
+        grid.innerHTML = `
+            <div class="alternative-photos-info">
+                <p><strong>Since we can't get the exact selection from the Picker API, here are recent photos from your Google Photos library:</strong></p>
+                <p>These might include the photos you just selected. Click on any photos you want to download and convert for your e-Paper display.</p>
+            </div>
+            <div class="photos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 20px;">
+                ${photos.map(photo => `
+                    <div class="photo-item" style="border: 2px solid transparent; border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color 0.2s;" 
+                         data-photo-id="${photo.id}" onclick="this.classList.toggle('selected'); this.style.borderColor = this.classList.contains('selected') ? '#007cba' : 'transparent';">
+                        <img src="${photo.baseUrl}=w150-h150-c" alt="Photo" style="width: 100%; height: 150px; object-fit: cover;">
+                        <div style="padding: 5px; font-size: 12px; background: white;">
+                            <div style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${photo.filename || 'Photo'}</div>
+                            <div style="color: #666; font-size: 10px;">${photo.mediaMetadata ? new Date(photo.mediaMetadata.creationTime).toLocaleDateString() : ''}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button id="downloadSelectedAlternativeBtn" class="ctl-btn control">Download Selected Photos</button>
+                <button id="selectAllAlternativeBtn" class="ctl-btn control" style="margin-left: 10px;">Select All</button>
+                <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-left: 10px;">Back to Picker</button>
+            </div>
+        `;
+        
+        // Add event listeners
+        const downloadBtn = document.getElementById('downloadSelectedAlternativeBtn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                this.downloadAlternativeSelection();
+            });
+        }
+        
+        const selectAllBtn = document.getElementById('selectAllAlternativeBtn');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                document.querySelectorAll('.photo-item').forEach(item => {
+                    item.classList.add('selected');
+                    item.style.borderColor = '#007cba';
+                });
+            });
+        }
+        
+        const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
+        if (selectMoreBtn) {
+            selectMoreBtn.addEventListener('click', () => {
+                container.style.display = 'none';
+                document.getElementById('pickerStatus').style.display = 'none';
+                document.getElementById('openPickerBtn').style.display = 'block';
+            });
+        }
+    }
+
+    downloadAlternativeSelection() {
+        const selectedPhotos = Array.from(document.querySelectorAll('.photo-item.selected')).map(item => {
+            return item.dataset.photoId;
+        });
+        
+        if (selectedPhotos.length === 0) {
+            alert('Please select at least one photo to download');
+            return;
+        }
+        
+        console.log('Downloading alternative selection:', selectedPhotos);
+        
+        // Send to backend for download
+        fetch('/api/google-photos/download-library-photos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photoIds: selectedPhotos
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            console.log('Download result:', result);
+            if (result.success) {
+                alert(`Successfully initiated download of ${selectedPhotos.length} photos!`);
+            } else {
+                alert('Download failed: ' + (result.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Download failed:', error);
+            alert('Download failed: ' + error.message);
+        });
     }
 }
 
