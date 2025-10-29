@@ -5,6 +5,7 @@ Google Photos Picker API routes for web interface
 import json
 import logging
 import requests
+from datetime import datetime
 from flask import Blueprint, jsonify, session, request
 from .google_auth import GooglePhotosAuth
 from .google_photos_picker_api import GooglePhotosPickerAPI
@@ -318,7 +319,7 @@ def get_selected_photos():
                 'details': 'User has not completed photo selection yet'
             }), 400
         
-        # Get selected media items
+        # Get selected media items using the correct Picker API endpoint
         result = picker_api.list_media_items(
             access_token=access_token,
             session_id=session_id,
@@ -326,17 +327,24 @@ def get_selected_photos():
             page_token=page_token
         )
         
-        # Handle Picker API limitation
-        if 'error' in result:
+        # Check if we successfully got the media items
+        if result.get('success'):
+            media_items = result['mediaItems']
+            logger.info(f"Successfully retrieved {len(media_items)} selected media items")
+            
             return jsonify({
-                'error': 'Picker API Limitation',
-                'details': result.get('message', 'Cannot list selected media items with current Picker API'),
-                'mediaItemsSet': True,
-                'pickedMediaItems': [],
-                'pickedAlbums': []
-            }), 200  # Return 200 but with explanation
-        
-        return jsonify(result)
+                'success': True,
+                'pickedMediaItems': media_items,
+                'count': len(media_items),
+                'nextPageToken': result.get('nextPageToken')
+            })
+        else:
+            # Handle API errors
+            logger.error(f"Failed to get media items: {result.get('error')} - {result.get('details')}")
+            return jsonify({
+                'error': result.get('error', 'Unknown error'),
+                'details': result.get('details', 'Failed to retrieve selected photos')
+            }), 500
         
     except Exception as e:
         logger.error(f"Error getting selected photos: {e}")
@@ -344,6 +352,63 @@ def get_selected_photos():
             'error': 'Failed to get selected photos',
             'details': str(e)
         }), 500
+
+
+@google_photos_bp.route('/media')
+def media_proxy():
+    """
+    Proxy a Google Photos media baseUrl so the frontend doesn't need to call
+    Google directly (which requires Authorization headers).
+
+    Query params:
+        baseUrl: (required) the baseUrl from the Picker API (URL-encoded)
+        modifier: (optional) a modifier string like 'w200-h200-c' to append as
+                  '=w200-h200-c'. If omitted, defaults to 'd' (download)
+
+    Returns:
+        The image bytes with the Content-Type returned by Google.
+    """
+    if not google_auth.is_authenticated():
+        return jsonify({'error': 'Not authenticated', 'details': 'Please authenticate with Google Photos first'}), 401
+
+    base_url = request.args.get('baseUrl')
+    modifier = request.args.get('modifier') or 'd'
+
+    if not base_url:
+        return jsonify({'error': 'Missing baseUrl', 'details': 'baseUrl query parameter is required'}), 400
+
+    try:
+        access_token = google_auth.get_access_token()
+        if not access_token:
+            return jsonify({'error': 'No access token', 'details': 'Authentication expired or invalid'}), 401
+
+        # Construct the URL to fetch from Google Photos
+        # The baseUrl should not include the '=' modifier
+        fetch_url = f"{base_url}={modifier}"
+
+        headers = {'Authorization': f'Bearer {access_token}'}
+
+        logger.info(f"Proxying media request to Google: {fetch_url[:120]}...")
+
+        resp = requests.get(fetch_url, headers=headers, stream=True, timeout=30)
+
+        if not resp.ok:
+            logger.error(f"Media proxy error: {resp.status_code} - {resp.text}")
+            return jsonify({'error': 'Failed to fetch media from Google', 'details': resp.text}), resp.status_code
+
+        # Stream response back to client preserving content-type
+        content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+        data = resp.content
+        # Use Flask Response to return bytes (avoid referencing app directly)
+        from flask import Response
+        return Response(data, mimetype=content_type, headers={
+            'Cache-Control': 'public, max-age=3600',
+            'Content-Length': str(len(data))
+        })
+
+    except Exception as e:
+        logger.error(f"Error proxying media: {e}")
+        return jsonify({'error': 'Media proxy failed', 'details': str(e)}), 500
 
 @google_photos_bp.route('/picker-callback', methods=['POST'])
 def picker_callback():
@@ -356,55 +421,57 @@ def picker_callback():
     Returns:
         JSON confirmation of received selection data
     """
-    logger.info("Received picker callback")
+    logger.info("🔔 PICKER CALLBACK RECEIVED")
     
     try:
         data = request.get_json()
         if not data:
+            logger.warning("No data received in picker callback")
             return jsonify({
                 'error': 'No data received',
                 'details': 'Request body must contain JSON data'
             }), 400
         
+        # Log everything we receive for debugging
+        logger.info("📦 CALLBACK DATA RECEIVED:")
+        logger.info(f"   Raw data: {json.dumps(data, indent=2)}")
+        
         session_id = data.get('sessionId')
         selection_data = data.get('selectionData')
+        message_event = data.get('messageEvent')
         
-        if not session_id:
-            return jsonify({
-                'error': 'Missing session ID',
-                'details': 'sessionId is required'
-            }), 400
+        if session_id:
+            logger.info(f"📍 Session ID: {session_id}")
         
-        if not selection_data:
-            return jsonify({
-                'error': 'Missing selection data',
-                'details': 'selectionData is required'
-            }), 400
+        if selection_data:
+            logger.info(f"📊 Selection data: {json.dumps(selection_data, indent=2)}")
         
-        logger.info(f"Picker callback for session {session_id}")
-        logger.info(f"Selection data received: {json.dumps(selection_data, indent=2)}")
+        if message_event:
+            logger.info(f"📨 Message event: {json.dumps(message_event, indent=2)}")
         
-        # Store the selection data in the session for later processing
-        session['picker_selection_data'] = selection_data
-        session['picker_selection_received'] = True
+        # Store any data we receive in the session for analysis
+        if not session.get('picker_callback_log'):
+            session['picker_callback_log'] = []
+        
+        session['picker_callback_log'].append({
+            'timestamp': str(datetime.now()) if 'datetime' in globals() else 'unknown',
+            'data': data
+        })
         session.modified = True
         
-        # TODO: Process the selection data to extract media items
-        # For now, just log what we received so we can see the structure
+        logger.info("✅ Picker callback data logged successfully")
         
         return jsonify({
             'success': True,
-            'message': 'Selection data received successfully',
+            'message': 'Callback data received and logged',
             'sessionId': session_id,
-            'dataReceived': True,
-            'selectionSummary': {
-                'keys': list(selection_data.keys()) if isinstance(selection_data, dict) else 'not_dict',
-                'type': str(type(selection_data).__name__)
-            }
+            'dataKeys': list(data.keys()),
+            'logEntry': len(session.get('picker_callback_log', []))
         })
         
     except Exception as e:
-        logger.error(f"Error processing picker callback: {e}")
+        logger.error(f"❌ Error processing picker callback: {e}")
+        logger.error(f"Request data: {request.get_data()}")
         return jsonify({
             'error': 'Failed to process callback',
             'details': str(e)
@@ -666,7 +733,14 @@ def download_photos():
         
         # Get all selected photos from the session
         result = picker_api.list_media_items(access_token, session_id)
-        photos = result.get('photos', [])
+        
+        if not result.get('success'):
+            return jsonify({
+                'error': 'Failed to get photos',
+                'details': result.get('error', 'Unknown error')
+            }), 400
+        
+        photos = result.get('mediaItems', [])
         
         if not photos:
             return jsonify({
@@ -693,13 +767,15 @@ def download_photos():
         downloaded_files = []
         
         for photo in photos:
+            # Extract data from Google's Picker API response structure
+            media_file = photo.get('mediaFile', {})
             # Convert to expected format for downloader
             media_item = {
                 'id': photo['id'],
-                'filename': photo['filename'],
+                'filename': media_file.get('filename', f"photo_{photo['id'][:8]}"),
                 'mediaFile': {
-                    'baseUrl': photo['baseUrl'],
-                    'mimeType': photo['mimeType']
+                    'baseUrl': media_file.get('baseUrl'),
+                    'mimeType': media_file.get('mimeType')
                 }
             }
             
@@ -720,5 +796,63 @@ def download_photos():
         logger.error(f"Error downloading photos: {e}")
         return jsonify({
             'error': 'Failed to download photos',
+            'details': str(e)
+        }), 500
+
+
+@google_photos_bp.route('/image-proxy')
+def image_proxy():
+    """
+    Proxy images from Google Photos with proper authentication.
+    This route accepts a baseUrl and parameters, fetches the image with OAuth token,
+    and returns it to the frontend.
+    """
+    try:
+        # Check authentication
+        access_token = google_auth.get_access_token()
+        if not access_token:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        # Get parameters
+        base_url = request.args.get('baseUrl')
+        params = request.args.get('params', 'w200-h200-c')  # Default size
+        
+        if not base_url:
+            return jsonify({'error': 'baseUrl parameter required'}), 400
+        
+        # Construct full URL with parameters
+        full_url = f"{base_url}={params}"
+        
+        # Make authenticated request to Google Photos
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'User-Agent': 'ePaper Display/1.0'
+        }
+        
+        logger.info(f"Proxying image request: {full_url}")
+        response = requests.get(full_url, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            # Return the image with appropriate headers
+            from flask import Response
+            return Response(
+                response.content,
+                mimetype=response.headers.get('content-type', 'image/jpeg'),
+                headers={
+                    'Cache-Control': 'public, max-age=3600',  # Cache for 1 hour
+                    'Content-Length': str(len(response.content))
+                }
+            )
+        else:
+            logger.error(f"Google Photos API error: {response.status_code} - {response.text}")
+            return jsonify({
+                'error': 'Failed to fetch image',
+                'status': response.status_code
+            }), response.status_code
+            
+    except Exception as e:
+        logger.error(f"Error proxying image: {e}")
+        return jsonify({
+            'error': 'Image proxy error',
             'details': str(e)
         }), 500

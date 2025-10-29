@@ -143,92 +143,79 @@ class GooglePhotosPickerAPI:
             logger.error(f"Failed to get session status: {e}")
             raise
     
-    def list_media_items(self, access_token: str, session_id: str, 
-                        page_size: int = 25, page_token: Optional[str] = None) -> Dict[str, Any]:
+    def list_media_items(self, access_token, session_id, page_size=25, page_token=None):
         """
-        List media items and albums selected in the session
+        List media items selected in a picker session
         
-        NOTE: The Google Photos Picker API doesn't provide a direct endpoint to list
-        selected media items. This method is a placeholder that should be updated
-        when Google provides the actual implementation.
-        
-        Args:
-            access_token: Valid access token
-            session_id: Picker session ID
-            page_size: Number of items per page
-            page_token: Token for pagination
-            
-        Returns:
-            Dict with selected media items and albums
+        Uses the correct Google Photos Picker API endpoint:
+        GET https://photospicker.googleapis.com/v1/mediaItems?sessionId={sessionId}
         """
-        # For now, return a placeholder response indicating that media items
-        # cannot be listed directly from the Picker API
-        logger.warning(f"list_media_items called for session {session_id} - this functionality may not be available in Picker API")
+        logger.info(f"Getting media items for session {session_id} using correct endpoint")
+        
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Use the correct endpoint format from the documentation
+        params = {
+            'sessionId': session_id,
+            'pageSize': page_size
+        }
+        
+        if page_token:
+            params['pageToken'] = page_token
         
         try:
-            # First check if the session exists and has media items
-            session_info = self.get_session(access_token, session_id)
+            # Log the full request for debugging
+            logger.info(f"Making request to photospicker API:")
+            logger.info(f"  URL: https://photospicker.googleapis.com/v1/mediaItems")
+            logger.info(f"  Params: {params}")
+            logger.info(f"  Headers: Authorization=Bearer {access_token[:20]}...")
             
-            if not session_info.get('mediaItemsSet', False):
-                return {
-                    'pickedMediaItems': [],
-                    'pickedAlbums': [],
-                    'nextPageToken': None
-                }
+            response = requests.get(
+                'https://photospicker.googleapis.com/v1/mediaItems',  # Correct endpoint
+                headers=headers,
+                params=params
+            )
             
-            # The Picker API doesn't currently provide a way to list the actual media items
-            # that were selected. This is a limitation of the API design.
-            # For now, we return a placeholder response.
-            logger.error(f"Cannot list media items for session {session_id} - Picker API limitation")
+            logger.info(f"API Response: Status={response.status_code}")
             
-            return {
-                'error': 'Media items listing not available',
-                'message': 'The Google Photos Picker API does not provide endpoints to list selected media items directly',
-                'pickedMediaItems': [],
-                'pickedAlbums': [],
-                'nextPageToken': None
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to list media items: {e}")
-            raise
-            photos = []
-            for item in media_items:
-                media_file = item.get('mediaFile', {})
-                photo = {
-                    'id': media_file.get('id'),
-                    'filename': item.get('filename'),
-                    'mimeType': media_file.get('mimeType'),
-                    'baseUrl': media_file.get('baseUrl'),
-                    'thumbnailUrl': f"{media_file.get('baseUrl')}=w300-h300-c",
-                    'downloadUrl': f"{media_file.get('baseUrl')}=d",
-                    'type': 'photo'
-                }
-                photos.append(photo)
+            if response.ok:
+                data = response.json()
+                logger.info(f"API Response body: {data}")
                 
-            # Process selected albums 
-            selected_albums = []
-            for album in albums:
-                album_info = {
-                    'id': album.get('id'),
-                    'title': album.get('title'),
-                    'mediaItemsCount': album.get('mediaItemsCount', 0),
-                    'coverPhotoBaseUrl': album.get('coverPhotoBaseUrl'),
-                    'type': 'album'
+                # Google returns 'mediaItems', not 'pickedMediaItems'
+                media_items = data.get('mediaItems', [])
+                logger.info(f"Parsed media items: {len(media_items)} items")
+                
+                if len(media_items) == 0:
+                    logger.warning(f"⚠️ API returned empty mediaItems array for session {session_id}")
+                    logger.warning(f"Full response data: {data}")
+                else:
+                    logger.info(f"✅ Retrieved {len(media_items)} media items for session {session_id}")
+                
+                return {
+                    'success': True,
+                    'mediaItems': media_items,
+                    'nextPageToken': data.get('nextPageToken')
                 }
-                selected_albums.append(album_info)
-            
-            logger.info(f"Retrieved {len(photos)} photos and {len(selected_albums)} albums from session {session_id}")
+            else:
+                logger.error(f"❌ API error for session {session_id}: {response.status_code}")
+                logger.error(f"Response text: {response.text}")
+                return {
+                    'success': False,
+                    'error': f'API returned {response.status_code}',
+                    'details': response.text
+                }
+                
+        except Exception as e:
+            logger.error(f"Exception listing media items for session {session_id}: {e}")
             return {
-                'photos': photos,
-                'albums': selected_albums,
-                'nextPageToken': next_page_token,
-                'totalItems': len(media_items) + len(albums)
+                'success': False,
+                'error': 'Request failed',
+                'details': str(e)
             }
-            
-        except requests.RequestException as e:
-            logger.error(f"Failed to list media items: {e}")
-            raise
     
     def poll_session_until_complete(self, access_token: str, session_id: str, 
                                   max_wait_time: int = 300, check_interval: int = 5) -> bool:

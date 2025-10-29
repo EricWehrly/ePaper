@@ -59,8 +59,19 @@ class GooglePhotosAPI:
             timeout=30
         )
         
-        response.raise_for_status()
-        return response.json()
+        try:
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            # Log the full error response for debugging
+            error_details = f"Status: {response.status_code}"
+            try:
+                error_body = response.json()
+                error_details += f", Body: {error_body}"
+            except:
+                error_details += f", Body: {response.text}"
+            logger.error(f"Google Photos API error - {error_details}")
+            raise
     
     def get_albums(self, access_token: str, page_size: int = 20, 
                    page_token: Optional[str] = None) -> Dict[str, Any]:
@@ -98,6 +109,15 @@ class GooglePhotosAPI:
             }
             
         except requests.RequestException as e:
+            # Log the full error response for debugging
+            if hasattr(e, 'response') and e.response is not None:
+                error_details = f"Albums API - Status: {e.response.status_code}"
+                try:
+                    error_body = e.response.json()
+                    error_details += f", Body: {error_body}"
+                except:
+                    error_details += f", Body: {e.response.text}"
+                logger.error(error_details)
             logger.error(f"Failed to get albums: {e}")
             raise
     
@@ -179,12 +199,48 @@ class GooglePhotosAPI:
         Returns:
             Dict with recent photos
         """
-        # Search without filters to get recent photos
-        return self.search_photos(
-            access_token=access_token,
-            page_size=page_size,
-            page_token=page_token
-        )
+        # Use mediaItems endpoint instead of search for recent photos
+        # The search endpoint requires filters, but for recent photos we can use the list endpoint
+        params = {
+            'pageSize': min(page_size, 100)
+        }
+        
+        if page_token:
+            params['pageToken'] = page_token
+            
+        try:
+            result = self._make_request('/mediaItems', access_token, 
+                                     method='GET', params=params)
+            
+            media_items = result.get('mediaItems', [])
+            next_page_token = result.get('nextPageToken')
+            
+            # Process media items to match expected format
+            photos = []
+            for item in media_items:
+                # Only include photos (not videos) for now
+                if item.get('mimeType', '').startswith('image/'):
+                    photo = {
+                        'id': item.get('id'),
+                        'filename': item.get('filename'),
+                        'description': item.get('description', ''),
+                        'mimeType': item.get('mimeType'),
+                        'baseUrl': item.get('baseUrl'),
+                        'thumbnailUrl': f"{item.get('baseUrl')}=w300-h300-c",
+                        'downloadUrl': f"{item.get('baseUrl')}=d"  # Download URL
+                    }
+                    photos.append(photo)
+            
+            logger.info(f"Retrieved {len(photos)} recent photos")
+            return {
+                'photos': photos,
+                'nextPageToken': next_page_token,
+                'totalCount': len(photos)
+            }
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to get recent photos: {e}")
+            raise
     
     def download_photo(self, access_token: str, photo_id: str, base_url: str) -> bytes:
         """

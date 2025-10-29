@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 class GooglePhotosAuth:
     """Handles OAuth 2.0 authentication for Google Photos API."""
     
-    # Required scope for Picker API
-    PICKER_SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly'
+    # Required scopes for Google Photos Library API
+    LIBRARY_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly'
     
     def __init__(self, client_id: str, client_secret: str, redirect_uri: str):
         """
@@ -29,7 +29,7 @@ class GooglePhotosAuth:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
-        self.scopes = [self.PICKER_SCOPE]
+        self.scopes = [self.LIBRARY_SCOPE]
         
     @classmethod
     def from_config(cls, config: Dict) -> 'GooglePhotosAuth':

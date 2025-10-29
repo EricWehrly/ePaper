@@ -9,6 +9,21 @@ class GooglePhotosManager {
         this.init();
     }
 
+    /**
+     * Create a proxied URL for Google Photos images that require authentication
+     * @param {string} baseUrl - The Google Photos base URL
+     * @param {string} params - Image parameters (default: w200-h200-c)
+     * @returns {string} - Proxied URL that can be used in frontend
+     */
+    createProxyImageUrl(baseUrl, params = 'w200-h200-c') {
+        if (!baseUrl || baseUrl.startsWith('/static/') || (baseUrl.startsWith('http://') && !baseUrl.includes('googleusercontent.com'))) {
+            // For placeholder images or non-Google URLs, return as-is
+            return baseUrl;
+        }
+        // Use the backend media proxy which attaches the OAuth token and handles Google URLs
+        return `/api/google-photos/media?baseUrl=${encodeURIComponent(baseUrl)}&modifier=${encodeURIComponent(params)}`;
+    }
+
     async init() {
         console.log('GooglePhotosManager initializing...');
         this.setupEventListeners();
@@ -268,62 +283,65 @@ class GooglePhotosManager {
     }
 
     setupPickerCallback(sessionId) {
-        console.log('Setting up picker callback for session:', sessionId);
+        console.log('🔗 Setting up picker callback for session:', sessionId);
         
-        // Listen for messages from the picker window/iframe
+        // Listen for messages - simplified logging
         const messageHandler = (event) => {
-            console.log('Received message from picker:', event);
-            console.log('Message origin:', event.origin);
-            console.log('Message data type:', typeof event.data);
-            console.log('Raw message data:', event.data);
-            
-            // Be more permissive with origins for testing
-            if (!event.origin.includes('google') && event.origin !== window.location.origin) {
-                console.log('Ignoring message from origin:', event.origin);
+            // Minimal logging: only act on likely picker messages.
+            // Many browser extensions (React DevTools, etc.) postMessage into pages
+            // which creates a lot of noise. Ignore those by quick checks.
+            let data = event.data;
+            if (typeof data === 'string') {
+                try {
+                    data = JSON.parse(data);
+                } catch (e) {
+                    // Not JSON, ignore quickly
+                    return;
+                }
+            }
+
+            // Ignore known noisy sources
+            if (data && data.source && typeof data.source === 'string') {
+                const src = data.source.toLowerCase();
+                if (src.includes('react-devtools') || src.includes('extension') || src.includes('reduxdevtools')) {
+                    // Quietly ignore extension messages
+                    return;
+                }
+            }
+
+            // Only accept messages that are likely picker callbacks:
+            // - contain a sessionId matching the session we're tracking
+            // - or have explicit selection/media properties
+            const looksLikePicker = data && (
+                (data.sessionId && String(data.sessionId) === String(sessionId)) ||
+                data.type === 'PICKER_SELECTION' ||
+                data.pickedMediaItems ||
+                data.selectedMedia ||
+                data.mediaItems ||
+                data.photos ||
+                data.selection ||
+                (typeof data === 'object' && Object.keys(data).some(key =>
+                    ['select', 'media', 'photo', 'picked'].some(k => key.toLowerCase().includes(k))
+                ))
+            );
+
+            if (!looksLikePicker) {
+                // Not relevant to picker flow; ignore to reduce noise
                 return;
             }
-            
-            try {
-                let data = event.data;
-                if (typeof data === 'string') {
-                    try {
-                        data = JSON.parse(data);
-                    } catch (e) {
-                        console.log('Message is string but not JSON:', data);
-                        // Keep as string
-                    }
-                }
-                
-                console.log('Processed picker message data:', data);
-                
-                // Check for any kind of selection-related data
-                if (data && (
-                    data.type === 'PICKER_SELECTION' || 
-                    data.selectedMedia || 
-                    data.mediaItems ||
-                    data.photos ||
-                    data.selection ||
-                    (typeof data === 'object' && Object.keys(data).some(key => 
-                        key.toLowerCase().includes('select') || 
-                        key.toLowerCase().includes('media') ||
-                        key.toLowerCase().includes('photo')
-                    ))
-                )) {
-                    console.log('Potential picker selection detected:', data);
-                    this.handlePickerSelection(sessionId, data);
-                    
-                    // Don't remove listener yet - keep listening for more data
-                }
-            } catch (error) {
-                console.error('Error processing picker message:', error);
-            }
+
+            // Log only when we have something relevant
+            console.log('🎯 PICKER SELECTION DETECTED (filtered):', { origin: event.origin, data });
+            this.handlePickerSelection(sessionId, data);
         };
         
-        // Add event listener for picker callbacks
+        // Add event listener for messages
         window.addEventListener('message', messageHandler);
         
         // Store the handler so we can clean it up later
         this.currentMessageHandler = messageHandler;
+        
+        console.log('✅ Message listener active');
     }
 
     createPickerIframe(pickerUri, sessionId) {
@@ -613,51 +631,120 @@ class GooglePhotosManager {
     }
 
     async loadSelectedPhotos() {
-        console.log('Loading selected photos...');
+        console.log('🔍 Loading selected photos from backend...');
         
         try {
             const response = await fetch('/api/google-photos/selected-photos');
+            console.log('📡 Selected photos response:', response.status, response.statusText);
             
             if (!response.ok) {
-                throw new Error('Failed to load selected photos');
+                // Try to get error details from response
+                let errorDetails = 'Unknown error';
+                try {
+                    const errorResult = await response.json();
+                    errorDetails = errorResult.error || errorResult.details || errorDetails;
+                    console.error('❌ Backend error:', errorResult);
+                } catch (e) {
+                    // If we can't parse JSON, use the response text
+                    errorDetails = await response.text();
+                    console.error('❌ Response error:', errorDetails);
+                }
+                throw new Error(`HTTP ${response.status}: ${errorDetails}`);
             }
             
             const result = await response.json();
+            console.log('📊 Selected photos result:', result);
             
-            // Handle Picker API limitation
-            if (result.error && result.error === 'Picker API Limitation') {
-                console.log('Picker API limitation encountered:', result.details);
+            // Check if we got a success response with picked media items
+            if (result.success && result.pickedMediaItems) {
+                const photos = result.pickedMediaItems || [];
+                console.log(`✅ Successfully loaded ${photos.length} selected photos!`);
                 
-                // Try alternative approach using Google Photos Library API
-                console.log('Attempting alternative photo access via Google Photos Library API...');
-                await this.tryAlternativePhotoAccess();
-                return;
+                // Show selected photos container
+                const container = document.getElementById('selectedPhotosContainer');
+                const grid = document.getElementById('selectedPhotosGrid');
+                
+                if (container && grid) {
+                    container.style.display = 'block';
+                    
+                    // Update container title
+                    const title = container.querySelector('h4');
+                    if (title) {
+                        title.textContent = `✅ Selected Photos (${photos.length} items)`;
+                    }
+                    
+                    // Render the actual selected photos
+                    this.renderPickedMediaItems(photos, 'selectedPhotosGrid');
+                } else {
+                    console.error('Could not find photo display containers');
+                }
+                
+                return; // Success path
             }
             
-            const photos = result.pickedMediaItems || [];
-            const albums = result.pickedAlbums || [];
+            // Handle specific error cases
+            if (result.error) {
+                if (result.error === 'No media items selected') {
+                    console.log('ℹ️ No photos selected yet, showing user message');
+                    this.showNoSelectionMessage();
+                    return;
+                } else if (result.error === 'Not authenticated') {
+                    console.log('🔐 Authentication required');
+                    alert('Please sign in to Google Photos first');
+                    return;
+                } else {
+                    console.error('❌ Backend reported error:', result.error, result.details);
+                    throw new Error(result.details || result.error);
+                }
+            }
             
-            console.log('Loaded selected items:', photos.length, 'photos,', albums.length, 'albums');
+            // Fallback: no success flag but no explicit error
+            console.log('⚠️ Unclear response from backend:', result);
+            this.showPickerLimitation(); // Show generic limitation message
             
-            // Show selected photos container
+        } catch (error) {
+            console.error('💥 Failed to load selected photos:', error);
+            
+            // Show user-friendly error in UI instead of just alert
             const container = document.getElementById('selectedPhotosContainer');
             const grid = document.getElementById('selectedPhotosGrid');
             
             if (container && grid) {
                 container.style.display = 'block';
-                
-                // Update container title to reflect both photos and albums
                 const title = container.querySelector('h4');
                 if (title) {
-                    title.textContent = `Selected Items (${photos.length} photos, ${albums.length} albums)`;
+                    title.textContent = '❌ Error Loading Selected Photos';
                 }
                 
-                this.renderSelectedItems(photos, albums, 'selectedPhotosGrid');
+                grid.innerHTML = `
+                    <div class="error-message" style="text-align: center; padding: 40px; color: #d32f2f;">
+                        <h3>🚨 Failed to Load Selected Photos</h3>
+                        <p style="margin: 20px 0;"><strong>Error:</strong> ${error.message}</p>
+                        <div style="margin-top: 20px;">
+                            <button id="retryLoadBtn" class="ctl-btn control">🔄 Retry</button>
+                            <button id="selectNewPhotosBtn" class="ctl-btn control" style="margin-left: 10px;">📸 Select New Photos</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add retry functionality
+                const retryBtn = document.getElementById('retryLoadBtn');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => this.loadSelectedPhotos());
+                }
+                
+                const selectNewBtn = document.getElementById('selectNewPhotosBtn');
+                if (selectNewBtn) {
+                    selectNewBtn.addEventListener('click', () => {
+                        container.style.display = 'none';
+                        document.getElementById('pickerStatus').style.display = 'none';
+                        document.getElementById('openPickerBtn').style.display = 'block';
+                    });
+                }
+            } else {
+                // Fallback to alert if UI elements aren't found
+                alert('Failed to load selected photos: ' + error.message);
             }
-            
-        } catch (error) {
-            console.error('Failed to load selected photos:', error);
-            alert('Failed to load selected photos: ' + error.message);
         }
     }
 
@@ -778,7 +865,7 @@ class GooglePhotosManager {
             albumElement.className = 'photo-item album-item';
             albumElement.innerHTML = `
                 <div class="album-cover">
-                    <img src="${album.coverPhotoBaseUrl || '/static/album-placeholder.png'}=w200-h200-c" alt="${album.title}" loading="lazy">
+                    <img src="${this.createProxyImageUrl(album.coverPhotoBaseUrl || '/static/album-placeholder.png', 'w200-h200-c')}" alt="${album.title}" loading="lazy">
                     <div class="album-badge">📁 Album</div>
                 </div>
                 <div class="photo-info">
@@ -793,41 +880,27 @@ class GooglePhotosManager {
         photos.forEach(photo => {
             const photoElement = document.createElement('div');
             photoElement.className = 'photo-item';
-            photoElement.innerHTML = `
-                <img src="${photo.baseUrl}=w200-h200-c" alt="${photo.filename || 'Photo'}" loading="lazy">
-                <div class="photo-info">
-                    <div class="photo-filename">${photo.filename || 'Photo'}</div>
-                </div>
-            `;
-            container.appendChild(photoElement);
-        });
-    }
 
-    renderPhotoGrid(photos, containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        photos.forEach(photo => {
-            const photoElement = document.createElement('div');
-            photoElement.className = 'photo-item';
+            const proxySrc = this.createProxyImageUrl(photo.baseUrl || '', 'w200-h200-c');
+            const fname = photo.filename || 'Photo';
+
             photoElement.innerHTML = `
-                <img src="${photo.baseUrl}=w200-h200-c" alt="${photo.filename || 'Photo'}" loading="lazy">
-                <div class="photo-overlay">
-                    <div class="photo-select-btn" data-photo-id="${photo.id}">
-                        <span class="checkmark">✓</span>
-                    </div>
+                <img src="${proxySrc}" alt="${fname}" loading="lazy" style="width: 100%; height: 150px; object-fit: cover;">
+                <div class="photo-info">
+                    <div class="photo-filename">${fname}</div>
+                    <button class="photo-select-btn ctl-btn control" style="margin-top: 8px;">Select</button>
                 </div>
             `;
-            
+
             // Add click handler for selection
             const selectBtn = photoElement.querySelector('.photo-select-btn');
-            selectBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.togglePhotoSelection(photo.id, photoElement);
-            });
-            
+            if (selectBtn) {
+                selectBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.togglePhotoSelection(photo.id, photoElement);
+                });
+            }
+
             container.appendChild(photoElement);
         });
     }
@@ -843,7 +916,7 @@ class GooglePhotosManager {
             albumElement.className = 'album-item';
             albumElement.innerHTML = `
                 <div class="album-cover">
-                    <img src="${album.coverPhotoBaseUrl || ''}=w200-h200-c" alt="${album.title}" loading="lazy">
+                    <img src="${this.createProxyImageUrl(album.coverPhotoBaseUrl || '', 'w200-h200-c')}" alt="${album.title}" loading="lazy">
                 </div>
                 <div class="album-info">
                     <h4>${album.title}</h4>
@@ -857,6 +930,197 @@ class GooglePhotosManager {
             
             container.appendChild(albumElement);
         });
+    }
+
+    renderPickedMediaItems(mediaItems, containerId) {
+        console.log('🖼️ Rendering picked media items:', mediaItems.length);
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (mediaItems.length === 0) {
+            container.innerHTML = `
+                <div class="no-items-message" style="text-align: center; padding: 40px; color: #666;">
+                    <h3>📷 No Photos Selected</h3>
+                    <p>No photos were found in your selection. Try selecting photos again.</p>
+                    <button id="retrySelectionBtn" class="ctl-btn control">Select Photos</button>
+                </div>
+            `;
+            
+            const retryBtn = document.getElementById('retrySelectionBtn');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', () => {
+                    container.parentElement.style.display = 'none';
+                    document.getElementById('pickerStatus').style.display = 'none';
+                    document.getElementById('openPickerBtn').style.display = 'block';
+                });
+            }
+            return;
+        }
+        
+        // Create a grid for the selected photos
+        const gridHTML = mediaItems.map(item => {
+            // Access data from Google's API response structure
+            const mediaFile = item.mediaFile || {};
+            const filename = mediaFile.filename || `Photo ${item.id.substring(0, 8)}`;
+            const baseUrl = mediaFile.baseUrl || '';
+            const mimeType = mediaFile.mimeType || '';
+            
+            // Use our backend proxy instead of direct Google Photos URL
+            const proxyUrl = this.createProxyImageUrl(baseUrl, 'w200-h200-c');
+            
+            return `
+                <div class="photo-item picked-item" data-photo-id="${item.id}">
+                    <img src="${proxyUrl}" alt="${filename}" loading="lazy" style="width: 100%; height: 150px; object-fit: cover;">
+                    <div class="photo-info" style="padding: 8px; background: white;">
+                        <div class="photo-filename" style="font-weight: bold; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</div>
+                        <div class="photo-details" style="font-size: 10px; color: #666; margin-top: 4px;">
+                            <div>Type: ${mimeType}</div>
+                            <div>ID: ${item.id.substring(0, 12)}...</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = `
+            <div style="margin-bottom: 20px; text-align: center;">
+                <p><strong>✅ Successfully retrieved ${mediaItems.length} selected photos from Google Photos Picker!</strong></p>
+                <p>These are the photos you selected. Click the button below to download and convert them for your e-Paper display.</p>
+            </div>
+            <div class="photos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;">
+                ${gridHTML}
+            </div>
+            <div style="margin-top: 30px; text-align: center;">
+                <button id="downloadPickedPhotosBtn" class="ctl-btn control" style="background: #28a745; font-size: 16px; padding: 12px 24px;">
+                    📥 Download & Convert Selected Photos
+                </button>
+                <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-left: 15px;">
+                    📸 Select More Photos
+                </button>
+            </div>
+        `;
+        
+        // Add event listeners
+        const downloadBtn = document.getElementById('downloadPickedPhotosBtn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                this.downloadPickedPhotos(mediaItems);
+            });
+        }
+        
+        const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
+        if (selectMoreBtn) {
+            selectMoreBtn.addEventListener('click', () => {
+                container.parentElement.style.display = 'none';
+                document.getElementById('pickerStatus').style.display = 'none';
+                document.getElementById('openPickerBtn').style.display = 'block';
+            });
+        }
+    }
+
+    showNoSelectionMessage() {
+        console.log('📝 Showing no selection message');
+        const container = document.getElementById('selectedPhotosContainer');
+        const grid = document.getElementById('selectedPhotosGrid');
+        
+        if (container && grid) {
+            container.style.display = 'block';
+            
+            const title = container.querySelector('h4');
+            if (title) {
+                title.textContent = '📷 No Photos Selected Yet';
+            }
+            
+            grid.innerHTML = `
+                <div class="no-selection-message" style="text-align: center; padding: 40px; color: #666;">
+                    <h3>🕒 Waiting for Photo Selection</h3>
+                    <p>You haven't selected any photos yet in the Google Photos picker.</p>
+                    <p>Please go back to the picker window and select some photos, then try again.</p>
+                    <div style="margin-top: 20px;">
+                        <button id="checkAgainBtn" class="ctl-btn control">🔄 Check Again</button>
+                        <button id="newSelectionBtn" class="ctl-btn control" style="margin-left: 10px;">📸 Start New Selection</button>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners
+            const checkAgainBtn = document.getElementById('checkAgainBtn');
+            if (checkAgainBtn) {
+                checkAgainBtn.addEventListener('click', () => this.loadSelectedPhotos());
+            }
+            
+            const newSelectionBtn = document.getElementById('newSelectionBtn');
+            if (newSelectionBtn) {
+                newSelectionBtn.addEventListener('click', () => {
+                    container.style.display = 'none';
+                    document.getElementById('pickerStatus').style.display = 'none';
+                    document.getElementById('openPickerBtn').style.display = 'block';
+                });
+            }
+        }
+    }
+
+    async downloadPickedPhotos(mediaItems) {
+        console.log('📥 Downloading picked photos:', mediaItems.length, 'items');
+        
+        const downloadBtn = document.getElementById('downloadPickedPhotosBtn');
+        const originalText = downloadBtn ? downloadBtn.textContent : '';
+        
+        try {
+            if (downloadBtn) {
+                downloadBtn.textContent = '⏳ Downloading...';
+                downloadBtn.disabled = true;
+            }
+            
+            // Call the existing download endpoint
+            const response = await fetch('/api/google-photos/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    // The backend download route expects to use the current session
+                    // and will call the picker API to get photos, so we don't need
+                    // to pass the photos here - just trigger the download
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('📥 Download result:', result);
+            
+            let message = '';
+            if (result.downloaded_count > 0) {
+                message = `✅ Downloaded ${result.downloaded_count} photos successfully!`;
+                if (result.failed_count > 0) {
+                    message += ` (${result.failed_count} failed)`;
+                }
+            } else {
+                message = 'ℹ️ No photos were downloaded. Please check the logs for details.';
+            }
+            
+            alert(message);
+            
+            // Refresh the main images grid if available
+            if (window.refreshImages) {
+                window.refreshImages();
+            }
+            
+        } catch (error) {
+            console.error('💥 Failed to download picked photos:', error);
+            alert('Failed to download photos: ' + error.message);
+        } finally {
+            if (downloadBtn) {
+                downloadBtn.textContent = originalText;
+                downloadBtn.disabled = false;
+            }
+        }
     }
 
     togglePhotoSelection(photoId, photoElement) {
@@ -1151,7 +1415,7 @@ class GooglePhotosManager {
                 ${photos.map(photo => `
                     <div class="photo-item" style="border: 2px solid transparent; border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color 0.2s;" 
                          data-photo-id="${photo.id}" onclick="this.classList.toggle('selected'); this.style.borderColor = this.classList.contains('selected') ? '#007cba' : 'transparent';">
-                        <img src="${photo.baseUrl}=w150-h150-c" alt="Photo" style="width: 100%; height: 150px; object-fit: cover;">
+                        <img src="${this.createProxyImageUrl(photo.baseUrl, 'w150-h150-c')}" alt="Photo" style="width: 100%; height: 150px; object-fit: cover;">
                         <div style="padding: 5px; font-size: 12px; background: white;">
                             <div style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${photo.filename || 'Photo'}</div>
                             <div style="color: #666; font-size: 10px;">${photo.mediaMetadata ? new Date(photo.mediaMetadata.creationTime).toLocaleDateString() : ''}</div>
