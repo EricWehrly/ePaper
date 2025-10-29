@@ -2,7 +2,7 @@
 resource "aws_security_group" "inlets_server" {
   name        = "epaper-inlets-server-sg"
   description = "Security group for inlets server"
-  vpc_id      = aws_vpc.inlets_vpc.id
+  # Uses default VPC (no vpc_id needed)
 
   # HTTP
   ingress {
