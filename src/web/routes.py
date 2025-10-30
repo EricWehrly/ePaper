@@ -53,7 +53,8 @@ def register_routes(app):
             "image_counts": {
                 "source": source_count,
                 "converted": converted_count
-            }
+            },
+            "queue": controller.conversion_queue.get_status() if controller.conversion_queue else None
         })
     
     @app.route('/api/images', methods=['GET'])

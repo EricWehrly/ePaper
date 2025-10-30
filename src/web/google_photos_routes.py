@@ -785,6 +785,15 @@ def download_photos():
         
         logger.info(f"Downloaded {len(downloaded_files)} photos from Google Photos")
         
+        # Add downloaded files to conversion queue (like drag-and-drop does)
+        from flask import current_app
+        controller = current_app.epaper_controller
+        if controller and controller.conversion_queue:
+            for file_path in downloaded_files:
+                from pathlib import Path
+                queue_id = controller.conversion_queue.add_file(Path(file_path))
+                logger.info(f"Added {Path(file_path).name} to conversion queue (id: {queue_id})")
+        
         return jsonify({
             'success': True,
             'downloaded_count': len(downloaded_files),

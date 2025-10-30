@@ -168,6 +168,43 @@ class ePaperController:
     def _set_busy(self, value: bool):
         self._busy = value
 
+    # ---------------- Startup File Management ----------------
+    
+    def _scan_and_queue_unconverted_files(self):
+        """
+        Scan pic-raw directory for files that don't have corresponding converted versions
+        and queue them for conversion.
+        """
+        if not self.conversion_queue:
+            logger.warning("Cannot scan for unconverted files - conversion queue not initialized")
+            return
+            
+        try:
+            source_files = []
+            # Get all supported image files from source directory
+            for pattern in ['*.jpg', '*.jpeg', '*.png', '*.heic', '*.HEIC']:
+                source_files.extend(self.source_dir.glob(pattern))
+            
+            unconverted = []
+            for source_file in source_files:
+                # Check if corresponding BMP exists in output directory
+                bmp_name = source_file.stem + '.bmp'
+                bmp_path = self.output_dir / bmp_name
+                
+                if not bmp_path.exists():
+                    unconverted.append(source_file)
+            
+            if unconverted:
+                logger.info(f"Found {len(unconverted)} unconverted files on startup")
+                for file_path in unconverted:
+                    logger.info(f"Queuing for conversion: {file_path.name}")
+                    self.conversion_queue.add_file(file_path)
+            else:
+                logger.info("All files in pic-raw have corresponding conversions")
+                
+        except Exception as e:
+            logger.error(f"Error scanning for unconverted files: {e}")
+
     # ---------------- Orientation ----------------
     
     def set_orientation(self, portrait_mode):
@@ -502,6 +539,9 @@ class ePaperController:
             from src.convert.queue import ConversionQueue
             self.conversion_queue = ConversionQueue(self)
             self.conversion_queue.start_processing()
+            
+            # Scan for unconverted files and queue them
+            self._scan_and_queue_unconverted_files()
             
             # Initialize display (but don't fail if it's not available)
             display_initialized = self.initialize_display()

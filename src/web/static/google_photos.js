@@ -481,40 +481,24 @@ class GooglePhotosManager {
             title.textContent = 'Photos Selected via Callback ✅';
         }
         
-        // Display the raw selection data for now
+        // Show simple selection success message
         grid.innerHTML = `
-            <div class="selection-debug">
+            <div style="text-align: center; padding: 40px;">
                 <h3>🎉 Selection Captured Successfully!</h3>
-                <p>Received selection data from Google Photos Picker callback:</p>
-                <pre style="background: #f5f5f5; padding: 20px; border-radius: 8px; overflow-x: auto; font-size: 12px; max-height: 400px;">${JSON.stringify(selectionData, null, 2)}</pre>
-                <div style="margin-top: 20px;">
-                    <button id="processSelectionBtn" class="ctl-btn control">Process Selected Photos</button>
-                    <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-left: 10px;">Select More Photos</button>
-                </div>
+                <p>Received selection data from Google Photos Picker callback. Processing photos...</p>
+                <div class="loading-spinner" style="margin: 20px auto;"></div>
             </div>
         `;
         
-        // Add event listeners
-        const processBtn = document.getElementById('processSelectionBtn');
-        if (processBtn) {
-            processBtn.addEventListener('click', () => {
-                this.processSelectedPhotos(selectionData);
-            });
-        }
-        
-        const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
-        if (selectMoreBtn) {
-            selectMoreBtn.addEventListener('click', () => {
-                container.style.display = 'none';
-                document.getElementById('pickerStatus').style.display = 'none';
-                document.getElementById('openPickerBtn').style.display = 'block';
-            });
-        }
+        // Automatically process the selection
+        this.processSelectedPhotos(selectionData);
     }
 
     processSelectedPhotos(selectionData) {
         console.log('Processing selected photos:', selectionData);
-        alert('Photo processing would be implemented here based on the selection data structure we receive!');
+        // For now, just trigger the normal loadSelectedPhotos flow
+        // In the future, this could use the callback data directly
+        setTimeout(() => this.loadSelectedPhotos(), 1000);
     }
 
     async pollPickerSession(sessionId, pickerWindow) {
@@ -959,65 +943,17 @@ class GooglePhotosManager {
             return;
         }
         
-        // Create a grid for the selected photos
-        const gridHTML = mediaItems.map(item => {
-            // Access data from Google's API response structure
-            const mediaFile = item.mediaFile || {};
-            const filename = mediaFile.filename || `Photo ${item.id.substring(0, 8)}`;
-            const baseUrl = mediaFile.baseUrl || '';
-            const mimeType = mediaFile.mimeType || '';
-            
-            // Use our backend proxy instead of direct Google Photos URL
-            const proxyUrl = this.createProxyImageUrl(baseUrl, 'w200-h200-c');
-            
-            return `
-                <div class="photo-item picked-item" data-photo-id="${item.id}">
-                    <img src="${proxyUrl}" alt="${filename}" loading="lazy" style="width: 100%; height: 150px; object-fit: cover;">
-                    <div class="photo-info" style="padding: 8px; background: white;">
-                        <div class="photo-filename" style="font-weight: bold; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</div>
-                        <div class="photo-details" style="font-size: 10px; color: #666; margin-top: 4px;">
-                            <div>Type: ${mimeType}</div>
-                            <div>ID: ${item.id.substring(0, 12)}...</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
+        // Show simple message and automatically start download
         container.innerHTML = `
-            <div style="margin-bottom: 20px; text-align: center;">
-                <p><strong>✅ Successfully retrieved ${mediaItems.length} selected photos from Google Photos Picker!</strong></p>
-                <p>These are the photos you selected. Click the button below to download and convert them for your e-Paper display.</p>
-            </div>
-            <div class="photos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;">
-                ${gridHTML}
-            </div>
-            <div style="margin-top: 30px; text-align: center;">
-                <button id="downloadPickedPhotosBtn" class="ctl-btn control" style="background: #28a745; font-size: 16px; padding: 12px 24px;">
-                    📥 Download & Convert Selected Photos
-                </button>
-                <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-left: 15px;">
-                    📸 Select More Photos
-                </button>
+            <div style="text-align: center; padding: 40px;">
+                <h3>✅ ${mediaItems.length} Photos Selected!</h3>
+                <p>Automatically downloading and converting for your e-Paper display...</p>
+                <div class="loading-spinner" style="margin: 20px auto;"></div>
             </div>
         `;
         
-        // Add event listeners
-        const downloadBtn = document.getElementById('downloadPickedPhotosBtn');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', () => {
-                this.downloadPickedPhotos(mediaItems);
-            });
-        }
-        
-        const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
-        if (selectMoreBtn) {
-            selectMoreBtn.addEventListener('click', () => {
-                container.parentElement.style.display = 'none';
-                document.getElementById('pickerStatus').style.display = 'none';
-                document.getElementById('openPickerBtn').style.display = 'block';
-            });
-        }
+        // Automatically download the selected photos (like drag-and-drop)
+        this.autoDownloadPickedPhotos(mediaItems);
     }
 
     showNoSelectionMessage() {
@@ -1062,17 +998,20 @@ class GooglePhotosManager {
         }
     }
 
-    async downloadPickedPhotos(mediaItems) {
-        console.log('📥 Downloading picked photos:', mediaItems.length, 'items');
-        
-        const downloadBtn = document.getElementById('downloadPickedPhotosBtn');
-        const originalText = downloadBtn ? downloadBtn.textContent : '';
+    async autoDownloadPickedPhotos(mediaItems) {
+        console.log('📥 Auto-downloading picked photos:', mediaItems.length, 'items');
         
         try {
-            if (downloadBtn) {
-                downloadBtn.textContent = '⏳ Downloading...';
-                downloadBtn.disabled = true;
-            }
+            // Create placeholder thumbnails immediately (like drag-and-drop does)
+            const placeholderFiles = mediaItems.map(item => {
+                const mediaFile = item.mediaFile || {};
+                return {
+                    filename: mediaFile.filename || `photo_${item.id.substring(0, 8)}.jpg`
+                };
+            });
+            
+            // Manually add placeholders to thumbnail grid (simpler than importing modules)
+            this.addPlaceholderThumbnails(placeholderFiles);
             
             // Call the existing download endpoint
             const response = await fetch('/api/google-photos/download', {
@@ -1095,32 +1034,85 @@ class GooglePhotosManager {
             const result = await response.json();
             console.log('📥 Download result:', result);
             
-            let message = '';
-            if (result.downloaded_count > 0) {
-                message = `✅ Downloaded ${result.downloaded_count} photos successfully!`;
-                if (result.failed_count > 0) {
-                    message += ` (${result.failed_count} failed)`;
+            // Hide the Google Photos interface and show success
+            const container = document.getElementById('selectedPhotosContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h3>🎉 Success!</h3>
+                        <p>Downloaded ${result.downloaded_count} photos! They are now being converted for your e-Paper display and will appear in the main thumbnail grid.</p>
+                        <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-top: 20px;">📸 Select More Photos</button>
+                    </div>
+                `;
+                
+                const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
+                if (selectMoreBtn) {
+                    selectMoreBtn.addEventListener('click', () => {
+                        container.parentElement.style.display = 'none';
+                        document.getElementById('pickerStatus').style.display = 'none';
+                        document.getElementById('openPickerBtn').style.display = 'block';
+                    });
                 }
-            } else {
-                message = 'ℹ️ No photos were downloaded. Please check the logs for details.';
             }
             
-            alert(message);
-            
-            // Refresh the main images grid if available
+            // Refresh the main images grid (like drag-and-drop does)
             if (window.refreshImages) {
                 window.refreshImages();
             }
             
         } catch (error) {
             console.error('💥 Failed to download picked photos:', error);
-            alert('Failed to download photos: ' + error.message);
-        } finally {
-            if (downloadBtn) {
-                downloadBtn.textContent = originalText;
-                downloadBtn.disabled = false;
+            
+            const container = document.getElementById('selectedPhotosContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #d32f2f;">
+                        <h3>❌ Download Failed</h3>
+                        <p>Failed to download photos: ${error.message}</p>
+                        <div style="margin-top: 20px;">
+                            <button id="retryDownloadBtn" class="ctl-btn control">🔄 Retry Download</button>
+                            <button id="selectMorePhotosBtn" class="ctl-btn control" style="margin-left: 10px;">📸 Select Different Photos</button>
+                        </div>
+                    </div>
+                `;
+                
+                const retryBtn = document.getElementById('retryDownloadBtn');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => this.autoDownloadPickedPhotos(mediaItems));
+                }
+                
+                const selectMoreBtn = document.getElementById('selectMorePhotosBtn');
+                if (selectMoreBtn) {
+                    selectMoreBtn.addEventListener('click', () => {
+                        container.parentElement.style.display = 'none';
+                        document.getElementById('pickerStatus').style.display = 'none';
+                        document.getElementById('openPickerBtn').style.display = 'block';
+                    });
+                }
             }
         }
+    }
+
+    addPlaceholderThumbnails(uploadedFiles) {
+        // Add placeholders to the main thumbnail grid (similar to drag-and-drop)
+        const thumbsList = document.getElementById('thumbList');
+        if (!thumbsList) return;
+
+        uploadedFiles.forEach(file => {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'thumb placeholder-thumb';
+            placeholder.id = `placeholder-${file.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            placeholder.innerHTML = `
+                <div class="placeholder-content">
+                    <div class="placeholder-spinner"></div>
+                    <div class="placeholder-text">Converting...</div>
+                    <div class="placeholder-filename">${file.filename}</div>
+                </div>
+            `;
+            
+            // Add to top of thumb list (newest first)
+            thumbsList.insertBefore(placeholder, thumbsList.firstChild);
+        });
     }
 
     togglePhotoSelection(photoId, photoElement) {
