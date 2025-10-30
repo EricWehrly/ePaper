@@ -11,10 +11,24 @@ import { setupDragDrop } from './js/dragdrop.js';
 import { updatePageTitle, updateAppHeading } from './js/app_config.js';
 
 /**
+ * Set favicon with emoji using JavaScript for better readability
+ * @param {string} emoji - Emoji to use as favicon
+ */
+function setFavicon(emoji = '📷') {
+  const favicon = document.createElement('link');
+  favicon.rel = 'icon';
+  favicon.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="80">${emoji}</text>
+  </svg>`;
+  document.head.appendChild(favicon);
+}
+
+/**
  * Initialize the application when DOM is loaded
  */
 window.addEventListener('load', () => {
-  // Update page title and heading with configured app name
+  // Set up favicon and dynamic page elements
+  setFavicon();
   updatePageTitle();
   updateAppHeading();
   // Load images list once at startup (images rarely change)
