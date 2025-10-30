@@ -8,11 +8,15 @@
 import { refreshImages, refresh, scheduleNextRefresh } from './js/ui.js';
 import { setupEventHandlers, startCountdownTimer } from './js/events.js';
 import { setupDragDrop } from './js/dragdrop.js';
+import { updatePageTitle, updateAppHeading } from './js/app_config.js';
 
 /**
  * Initialize the application when DOM is loaded
  */
 window.addEventListener('load', () => {
+  // Update page title and heading with configured app name
+  updatePageTitle();
+  updateAppHeading();
   // Load images list once at startup (images rarely change)
   refreshImages().then(() => {
     // Then start regular status polling

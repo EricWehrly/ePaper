@@ -74,15 +74,28 @@ export async function refreshImages() {
     // Images are now pre-sorted by creation time (newest first) from backend
     console.log('Current thumbnail ordering: newest first by creation time');
     
-    // Identify completed conversions and remove their placeholders
+    // Identify completed conversions and remove their placeholders (robust matching)
     const convertedFilenames = all.map(img => img.name.replace(/\.bmp$/, ''));
     const completedConversions = [];
     
     state.pendingUploads.forEach(pending => {
-      const baseFilename = pending.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
-      if (convertedFilenames.some(converted => converted === baseFilename)) {
-        completedConversions.push(pending.filename);
-        removePendingUploadPlaceholder(pending.filename);
+      // Try multiple matching strategies for robust detection
+      const originalName = pending.filename;
+      const baseFilename = originalName.replace(/\.(png|jpg|jpeg|gif|webp|bmp)$/i, '');
+      
+      // Check if any converted image matches this pending upload
+      const isConverted = convertedFilenames.some(converted => {
+        // Exact base name match
+        if (converted === baseFilename) return true;
+        // Handle potential filename cleaning/sanitization
+        const cleanOriginal = baseFilename.replace(/[^\w\-_]/g, '_');
+        const cleanConverted = converted.replace(/[^\w\-_]/g, '_');
+        return cleanOriginal === cleanConverted;
+      });
+      
+      if (isConverted) {
+        completedConversions.push(originalName);
+        removePendingUploadPlaceholder(originalName);
       }
     });
     
@@ -270,6 +283,7 @@ export function scheduleNextRefresh() {
 }
 
 // 📋 Add placeholder thumbnails for files being uploaded/converted
+// TODO: Implement image preview for Google Photos downloads (similar to drag-and-drop FileReader preview)
 export function addPendingUploadPlaceholders(uploadedFiles, originalFiles = null) {
   const thumbnailsContainer = document.getElementById('thumbList');
   

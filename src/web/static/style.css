@@ -1,3 +1,6 @@
+/* Import dreamy fonts */
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600&family=Kalam:wght@300;400&display=swap');
+
 /* Consolidated stylesheet - cross-browser scrollbar + variables */
 
 /* Ngrok Redirect Banner Styles */
@@ -158,7 +161,15 @@ body {
 
 .container { max-width: 1000px; margin: 0 auto; }
 
-h1 { text-align: center; }
+h1 { 
+  text-align: center; 
+  font-family: 'Dancing Script', 'Kalam', cursive, sans-serif;
+  font-weight: 600;
+  font-size: 2.5rem;
+  color: var(--primary-text);
+  margin: 20px 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
 .panel { display: flex; flex-direction: column; gap: 20px; align-items: stretch; }
 
@@ -841,6 +852,15 @@ h1 { text-align: center; }
     font-weight: 500;
     transition: all 0.2s ease;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.google-photos-toggle .button-icon {
+    width: 20px;
+    height: 20px;
+    opacity: 0.8;
 }
 
 .google-photos-toggle button:hover {
