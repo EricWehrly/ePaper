@@ -83,57 +83,23 @@
       
       <!-- Google Photos section -->
       <div class="google-photos-section" id="googlePhotosSection" style="display:none;">
-        <h3>Google Photos</h3>
-        <div class="google-photos-auth" id="googlePhotosAuth">
+        <div class="google-photos-simple">
+          <h3>📸 Google Photos</h3>
           <div class="auth-status" id="authStatus">
             <span id="authStatusText">Checking authentication...</span>
             <button id="loginBtn" class="ctl-btn control" style="display:none;">Sign In with Google</button>
             <button id="logoutBtn" class="ctl-btn control danger" style="display:none;">Sign Out</button>
           </div>
-        </div>
-        
-        <div class="google-photos-content" id="googlePhotosContent" style="display:none;">
-          <div class="photos-tabs">
-            <button class="tab-btn active" data-tab="recent">Recent Photos</button>
-            <button class="tab-btn" data-tab="albums">Albums</button>
-          </div>
           
-          <div class="photos-tab-content" id="recentTab">
-            <div class="photos-grid" id="recentPhotosGrid">
-              <div class="loading-placeholder">Loading recent photos...</div>
-            </div>
-            <div class="pagination" id="recentPagination" style="display:none;">
-              <button id="recentPrevBtn" class="ctl-btn control">Previous</button>
-              <span id="recentPageInfo">Page 1</span>
-              <button id="recentNextBtn" class="ctl-btn control">Next</button>
+          <div class="picker-controls" id="pickerControls" style="display:none;">
+            <button id="openPickerBtn" class="ctl-btn control primary">Select Photos from Google Photos</button>
+            <div class="picker-status" id="pickerStatus">
+              <span id="pickerStatusText">Ready to select photos</span>
             </div>
           </div>
           
-          <div class="photos-tab-content" id="albumsTab" style="display:none;">
-            <div class="albums-list" id="albumsList">
-              <div class="loading-placeholder">Loading albums...</div>
-            </div>
-            <div class="album-photos" id="albumPhotos" style="display:none;">
-              <div class="album-header">
-                <button id="backToAlbumsBtn" class="ctl-btn control">&larr; Back to Albums</button>
-                <h4 id="albumTitle">Album Name</h4>
-              </div>
-              <div class="photos-grid" id="albumPhotosGrid"></div>
-              <div class="pagination" id="albumPagination" style="display:none;">
-                <button id="albumPrevBtn" class="ctl-btn control">Previous</button>
-                <span id="albumPageInfo">Page 1</span>
-                <button id="albumNextBtn" class="ctl-btn control">Next</button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="selected-photos" id="selectedPhotos" style="display:none;">
-            <h4>Selected Photos (<span id="selectedCount">0</span>)</h4>
-            <div class="selected-grid" id="selectedGrid"></div>
-            <div class="download-actions">
-              <button id="clearSelectionBtn" class="ctl-btn control">Clear Selection</button>
-              <button id="downloadBtn" class="ctl-btn control primary">Download & Convert</button>
-            </div>
+          <div class="picker-results" id="pickerResults" style="display:none;">
+            <!-- Results from picker will be displayed here -->
           </div>
         </div>
       </div>
@@ -146,7 +112,7 @@
   </div>
   <script src="/static/js/ngrok_banner.js"></script>
   <script src="/static/js/toast.js"></script>
-  <script src="/static/google_photos.js"></script>
+  <script src="/static/js/google_photos_simple.js"></script>
   <script>
     // Minimal module loader with performance.now() cache-buster
     (function(){
