@@ -71,8 +71,19 @@ class SimpleGooglePhotos {
 
     toggleSection() {
         const section = document.getElementById('googlePhotosSection');
+        const container = section.closest('.google-photos-container');
         const isVisible = section.style.display !== 'none';
+        
         section.style.display = isVisible ? 'none' : 'block';
+        
+        // Update expanded class on container for styling
+        if (container) {
+            if (isVisible) {
+                container.classList.remove('google-photos-expanded');
+            } else {
+                container.classList.add('google-photos-expanded');
+            }
+        }
         
         if (!isVisible && !this.authenticated) {
             this.checkAuthStatus();
@@ -99,20 +110,34 @@ class SimpleGooglePhotos {
         const authStatusText = document.getElementById('authStatusText');
         const loginBtn = document.getElementById('loginBtn');
         const logoutBtn = document.getElementById('logoutBtn');
-        const pickerControls = document.getElementById('pickerControls');
+        const pickerSection = document.getElementById('pickerSection');
+        const pickerStatus = document.getElementById('pickerStatus');
+        const section = document.getElementById('googlePhotosSection');
+        const container = section?.closest('.google-photos-container');
 
         if (authData.authenticated) {
             authStatusText.textContent = `Signed in as ${authData.user?.email || 'Google user'}`;
             loginBtn.style.display = 'none';
             logoutBtn.style.display = 'inline-block';
-            pickerControls.style.display = 'block';
+            pickerSection.style.display = 'block';
+            pickerStatus.style.display = 'block';
             this.updateStatus('Ready to select photos');
+            
+            // Auto-expand section when user is logged in
+            if (section && container) {
+                section.style.display = 'block';
+                container.classList.add('google-photos-expanded');
+            }
         } else {
             authStatusText.textContent = 'Not signed in to Google Photos';
             loginBtn.style.display = 'inline-block';
             logoutBtn.style.display = 'none';
-            pickerControls.style.display = 'none';
+            pickerSection.style.display = 'none';
+            pickerStatus.style.display = 'none';
             this.updateStatus('Sign in required');
+            
+            // Don't force-close section when not authenticated - let user toggle manually
+            // Only auto-expand if authenticated, but never auto-collapse
         }
     }
 
@@ -184,9 +209,13 @@ class SimpleGooglePhotos {
             
             this.updateStatus('Opening Google Photos picker...', 'waiting');
             
-            // Open picker in popup
+            // Open picker in popup with autoclose as path parameter
+            const pickerUrl = this.currentSession.pickerUri.endsWith('/') 
+                ? this.currentSession.pickerUri + 'autoclose'
+                : this.currentSession.pickerUri + '/autoclose';
+            
             const pickerWindow = window.open(
-                this.currentSession.pickerUri + '/autoclose',
+                pickerUrl,
                 'googlePhotosPicker',
                 'width=800,height=600,scrollbars=yes,resizable=yes'
             );
@@ -207,26 +236,58 @@ class SimpleGooglePhotos {
     startPolling(pickerWindow) {
         this.updateStatus('Waiting for photo selection...', 'waiting');
         
-        // Check if popup was closed without selection
+        let selectionComplete = false;
+        let startTime = Date.now();
+        
+        // Monitor window closure but be patient about cancellation detection
         const checkClosed = setInterval(() => {
-            if (pickerWindow.closed) {
+            if (pickerWindow.closed && !selectionComplete) {
                 clearInterval(checkClosed);
-                if (this.pollingInterval) {
-                    clearInterval(this.pollingInterval);
-                    this.pollingInterval = null;
+                
+                const elapsedTime = Date.now() - startTime;
+                console.log(`Picker window closed after ${elapsedTime}ms, selectionComplete: ${selectionComplete}`);
+                
+                // Be much more patient - give plenty of time to detect selection
+                // Don't treat as cancelled unless window was open for meaningful time AND no selection detected
+                const minTimeForSelection = 10000; // 10 seconds minimum
+                const waitTimeAfterClose = 10000; // Wait 10 seconds after close to check for selection
+                
+                if (elapsedTime > minTimeForSelection) {
+                    // Window was open long enough, give time to detect selection
+                    setTimeout(() => {
+                        if (!selectionComplete && this.pollingInterval) {
+                            clearInterval(this.pollingInterval);
+                            this.pollingInterval = null;
+                            console.log('Treating window closure as cancellation after reasonable wait');
+                            this.updateStatus('Photo selection cancelled');
+                        }
+                    }, waitTimeAfterClose);
+                } else {
+                    // Window closed very quickly - likely autoclose, keep polling longer
+                    setTimeout(() => {
+                        if (!selectionComplete && this.pollingInterval) {
+                            clearInterval(this.pollingInterval);
+                            this.pollingInterval = null;
+                            console.log('Picker closed quickly but no selection detected - likely cancelled');
+                            this.updateStatus('Photo selection cancelled');
+                        }
+                    }, 15000); // Give 15 seconds for quick autoclose scenarios
                 }
-                this.updateStatus('Photo selection cancelled');
             }
-        }, 1000);
+        }, 2000); // Check less frequently to avoid spam
 
-        // Poll for session completion
+        // Poll for session completion more aggressively
         this.pollingInterval = setInterval(async () => {
             try {
                 const response = await fetch('/api/google-photos/session-status');
                 const data = await response.json();
                 
+                console.log('Session status check:', data.session?.mediaItemsSet ? 'COMPLETE' : 'pending');
+                
                 if (data.session?.mediaItemsSet) {
                     // Selection complete!
+                    console.log('Selection detected - marking complete');
+                    selectionComplete = true;
                     clearInterval(this.pollingInterval);
                     clearInterval(checkClosed);
                     this.pollingInterval = null;
@@ -240,7 +301,7 @@ class SimpleGooglePhotos {
             } catch (error) {
                 console.error('Polling error:', error);
             }
-        }, 2000);
+        }, 2000); // Poll every 2 seconds - reasonable balance of responsiveness and server load
     }
 
     async handleSelectionComplete() {
@@ -255,7 +316,10 @@ class SimpleGooglePhotos {
             }
             
             const data = await response.json();
-            const mediaItems = data.mediaItems || [];
+            const mediaItems = data.pickedMediaItems || data.mediaItems || [];
+            
+            console.log('Selected photos response:', data);
+            console.log('Media items found:', mediaItems.length);
             
             if (mediaItems.length === 0) {
                 this.updateStatus('No photos were selected');

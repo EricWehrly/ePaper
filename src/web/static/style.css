@@ -390,113 +390,7 @@ h1 { text-align: center; }
 }
 
 /* Google Photos Integration Styles */
-.google-photos-toggle {
-    margin-top: 20px;
-    text-align: center;
-}
-
-.google-photos-section {
-    background: var(--panel-bg);
-    border-radius: var(--card-radius);
-    padding: var(--card-padding);
-    margin-top: 20px;
-    box-shadow: var(--box-shadow);
-}
-
-.google-photos-section h3 {
-    margin: 0 0 20px 0;
-    color: var(--text);
-    font-size: 1.2em;
-}
-
-.auth-status {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: var(--panel-spot);
-    border-radius: var(--small-radius);
-}
-
-.photos-tabs {
-    display: flex;
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--muted-2);
-}
-
-.tab-btn {
-    background: none;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
-    color: var(--control-text);
-    font-size: 14px;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s ease;
-}
-
-.tab-btn:hover {
-    background: var(--panel-spot);
-}
-
-.tab-btn.active {
-    color: var(--accent-blue);
-    border-bottom-color: var(--accent-blue);
-    font-weight: 600;
-}
-
-.photos-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.photo-item {
-    position: relative;
-    background: white;
-    border-radius: var(--small-radius);
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.photo-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.photo-item.selected {
-    border: 3px solid var(--accent-blue);
-    transform: scale(0.95);
-}
-
-.photo-item img {
-    width: 100%;
-    height: 150px;
-    object-fit: cover;
-}
-
-.photo-info {
-    padding: 8px;
-    font-size: 12px;
-    color: var(--control-text);
-    background: white;
-}
-
-.photo-filename {
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.photo-date {
-    color: var(--muted);
-    margin-top: 2px;
-}
+/* Old complex Google Photos CSS removed - using simplified interface below */
 
 .albums-list {
     display: grid;
@@ -869,36 +763,111 @@ h1 { text-align: center; }
     transform: translateY(-1px);
 }
 
-/* Google Photos Simple Interface */
+/* Google Photos Container - Groups toggle and content */
+.google-photos-container {
+    background: var(--panel-bg);
+    border: 1px solid var(--muted-2);
+    border-radius: var(--radius);
+    margin: 20px 0;
+}
+
+/* Google Photos Content Area */
 .google-photos-simple {
     display: flex;
     flex-direction: column;
     gap: 16px;
     padding: 20px;
-    background: var(--panel-bg);
-    border: 1px solid var(--muted-2);
-    border-radius: var(--radius);
+    border-top: 1px solid var(--muted-2);
 }
 
-.google-photos-simple h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: var(--control-text);
-}
-
-.picker-controls {
+/* Controls Row - Auth and Picker on Same Line */
+.controls-row {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+/* Stack on smaller screens */
+@media (max-width: 640px) {
+    .controls-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+}
+
+.picker-section {
+    display: flex;
+    align-items: center;
     gap: 12px;
 }
 
+.auth-section {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    flex: 1;
+}
+
+/* Status underneath controls */
 .picker-status {
-    padding: 8px 12px;
+    padding: 12px 16px;
     background: var(--panel-spot);
     border-radius: var(--small-radius);
     font-size: 0.9rem;
     color: var(--control-text);
     border: 1px solid var(--muted-2);
+    margin-top: 4px;
+}
+
+/* Toggle button as integrated header */
+.google-photos-toggle {
+    margin: 0;
+    padding: 0;
+}
+
+.google-photos-toggle button {
+    width: 100%;
+    padding: 16px 20px;
+    text-align: left;
+    background: var(--panel-bg);
+    border: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    color: var(--control-text);
+    font-size: 1.1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.google-photos-toggle button:hover {
+    background: var(--panel-spot);
+}
+
+/* When expanded, remove bottom border radius */
+.google-photos-expanded .google-photos-toggle button {
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: 1px solid var(--muted-2);
+}
+
+.toggle-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    margin-right: 8px;
+    font-weight: bold;
+}
+
+/* Rotate icon when section is expanded */
+.google-photos-expanded .toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* When collapsed, rounded bottom corners */
+.google-photos-container:not(.google-photos-expanded) .google-photos-toggle button {
+    border-radius: var(--radius);
 }
 
 .picker-status.waiting {

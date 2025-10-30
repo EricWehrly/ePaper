@@ -82,31 +82,37 @@
       </div>
       
       <!-- Google Photos section -->
-      <div class="google-photos-section" id="googlePhotosSection" style="display:none;">
-        <div class="google-photos-simple">
-          <h3>📸 Google Photos</h3>
-          <div class="auth-status" id="authStatus">
-            <span id="authStatusText">Checking authentication...</span>
-            <button id="loginBtn" class="ctl-btn control" style="display:none;">Sign In with Google</button>
-            <button id="logoutBtn" class="ctl-btn control danger" style="display:none;">Sign Out</button>
-          </div>
-          
-          <div class="picker-controls" id="pickerControls" style="display:none;">
-            <button id="openPickerBtn" class="ctl-btn control primary">Select Photos from Google Photos</button>
-            <div class="picker-status" id="pickerStatus">
-              <span id="pickerStatusText">Ready to select photos</span>
+      <!-- Google Photos Section with Integrated Toggle Header -->
+      <div class="google-photos-container">
+        <!-- Toggle button as section header -->
+        <div class="google-photos-toggle">
+          <button id="toggleGooglePhotos" class="ctl-btn control"><span class="toggle-icon">^</span> Google Photos</button>
+        </div>
+        
+        <!-- Expandable content -->
+        <div class="google-photos-simple" id="googlePhotosSection" style="display:none;">
+          <!-- Authentication and Picker Controls on Same Line -->
+          <div class="controls-row" id="controlsRow">
+            <div class="picker-section" id="pickerSection" style="display:none;">
+              <button id="openPickerBtn" class="ctl-btn control primary">Open photo picker</button>
+            </div>
+            
+            <div class="auth-section" id="authSection">
+              <span id="authStatusText">Checking authentication...</span>
+              <button id="loginBtn" class="ctl-btn control" style="display:none;">Sign In with Google</button>
+              <button id="logoutBtn" class="ctl-btn control danger" style="display:none;">Sign Out</button>
             </div>
           </div>
           
+          <!-- Status Text Underneath -->
+          <div class="picker-status" id="pickerStatus" style="display:none;">
+            <span id="pickerStatusText">Ready to select photos</span>
+          </div>
+            
           <div class="picker-results" id="pickerResults" style="display:none;">
             <!-- Results from picker will be displayed here -->
           </div>
         </div>
-      </div>
-      
-      <!-- Toggle button for Google Photos -->
-      <div class="google-photos-toggle">
-        <button id="toggleGooglePhotos" class="ctl-btn control">📸 Google Photos</button>
       </div>
     </div>
   </div>
