@@ -26,8 +26,9 @@ This document outlines planned interface and user experience improvements for th
 - Custom color picker for advanced users
 - Real-time theme preview
 - Theme persistence across sessions
+- **Location**: Top-right interface area for easy access
 
-**Priority**: High - Dark mode is commonly requested
+**Priority**: High - Nice to have feature, commonly requested
 
 **Technical Notes**:
 - Current CSS uses CSS variables (:root) which makes this straightforward

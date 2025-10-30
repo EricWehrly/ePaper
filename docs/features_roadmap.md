@@ -5,7 +5,7 @@ This document outlines planned functional features for the ePaper Display system
 ## 📁 Content Management
 
 ### Duplicate Photo Detection
-**Status**: Planned - High Priority  
+**Status**: In Progress - High Priority  
 **Description**: Prevent uploading the same photo multiple times by detecting duplicates.
 
 **Implementation Ideas**:
@@ -17,7 +17,8 @@ This document outlines planned functional features for the ePaper Display system
 
 **Technical Notes**:
 - Affects both drag-and-drop uploads and Google Photos downloads
-- Implemented in shared photo_validation.js module
+- Framework implemented in shared photo_validation.js module
+- TODO: Complete hash comparison and user confirmation dialogs
 
 ### Image Preview for Google Photos
 **Status**: Planned - Medium Priority
@@ -27,6 +28,18 @@ This document outlines planned functional features for the ePaper Display system
 - Use /static_image endpoint to serve raw downloaded images
 - Apply same CSS overlay system as drag-and-drop
 - Show preview immediately after download, before conversion
+
+### Image Format Quality Testing
+**Status**: Planned - High Priority
+**Description**: Test and compare conversion quality between different source image formats.
+
+**Implementation Ideas**:
+- Side-by-side visual comparison of JPG vs PNG source conversions
+- Quality metrics and recommendations for optimal source formats
+- Visual test interface for manual quality assessment
+- TODO: Add HEIC format testing when supported
+
+**Priority**: High - Needed for optimal user experience
 
 ### Advanced Image Management
 **Status**: Future consideration  
@@ -41,6 +54,19 @@ This document outlines planned functional features for the ePaper Display system
 **Priority**: Low
 
 ## 🔄 System Features
+
+### System Service Installation
+**Status**: Planned - High Priority
+**Description**: Install and uninstall scripts for running display controller as a Pi system service.
+
+**Implementation Ideas**:
+- Systemd service configuration and installation
+- Auto-start on boot functionality  
+- Service lifecycle management (start, stop, restart, status)
+- Clean uninstall process with complete cleanup
+- Service health monitoring and auto-recovery
+
+**Priority**: High - Essential for production deployment
 
 ### Conversion Queue Management
 **Status**: Future consideration

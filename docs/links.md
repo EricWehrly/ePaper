@@ -2,6 +2,14 @@
 * Example code we are starting from: [`epd_4in0e_test.py`](https://github.com/waveshareteam/e-Paper/blob/master/RaspberryPi_JetsonNano/python/examples/epd_4in0e_test.py)
 * Library reference: [`waveshare_epd/epd4in0e.py`](https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/lib/waveshare_epd)
 
+### Google photos project:
+
+Project dashboard:
+https://console.cloud.google.com/home/dashboard?project=epaper-integration
+
+oauth client:
+https://console.cloud.google.com/auth/clients/271071428225-baafdc2ihnpl3f8kq4ho26hhckuvim10.apps.googleusercontent.com?project=epaper-integration
+
 ## Google Photos API Research
 
 ### Official Documentation

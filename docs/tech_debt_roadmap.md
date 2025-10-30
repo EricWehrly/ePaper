@@ -4,6 +4,24 @@ This document aggregates technical debt and improvement tasks across the ePaper 
 
 ## 🔧 High Priority Technical Debt
 
+### Autoplay Timer System
+**Locations**: Frontend carousel and display timing logic
+**Issue**: Timer includes display draw time instead of just display duration
+**Impact**: Inconsistent slideshow timing, poor user experience
+**TODO**: Separate display duration timer from processing/draw time
+
+### Display Busy Indicator Position  
+**Location**: Frontend UI positioning
+**Issue**: Currently in lower left, should be in middle top
+**Impact**: Poor visibility and user feedback
+**TODO**: Reposition busy indicator to middle-top of interface
+
+### Navigation Button Feedback
+**Locations**: Previous/Next button handlers
+**Issue**: Buttons work but provide no user feedback
+**Impact**: Users uncertain if clicks registered
+**TODO**: Add visual/audio feedback for navigation actions
+
 ### Display Module Cleanup
 **Location**: `src/display/manager.py:66`
 **Issue**: Late import of `waveshare_epd.epd4in0e` in function
@@ -26,9 +44,27 @@ This document aggregates technical debt and improvement tasks across the ePaper 
 **Impact**: Poor user experience during uploads/conversions
 **TODO**: Add loading spinners, progress indicators, and friendly error messages
 
-## 🎯 Medium Priority Technical Debt
+## 🎯 Performance & Optimization
 
-### Performance Optimization
+### RequestAnimationFrame Implementation
+**Location**: Frontend animation and update logic
+**Issue**: No frame-based animations, potential performance pressure  
+**Impact**: Choppy UI updates, unnecessary CPU usage
+**TODO**: Implement requestAnimationFrame for smoother animations
+
+### WebSocket + Worker Thread Architecture
+**Location**: Server communication and background processing
+**Issue**: Current polling model creates server pressure
+**Impact**: Unnecessary network traffic and server load
+**TODO**: Implement WebSocket for real-time updates and worker threads for heavy operations
+
+### Active Image Indicator
+**Location**: Available images thumbnail display
+**Issue**: No visual indication of which image is currently active/displayed
+**Impact**: Poor user orientation and feedback
+**TODO**: Add active state indicator in thumbnail list
+
+### Frontend Performance
 **Location**: `src/convert/core.py:44`
 **Issue**: Image conversion performance needs improvement
 **Impact**: Slow conversion times, especially for batch operations
