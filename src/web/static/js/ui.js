@@ -283,7 +283,6 @@ export function scheduleNextRefresh() {
 }
 
 // 📋 Add placeholder thumbnails for files being uploaded/converted
-// TODO: Implement image preview for Google Photos downloads (similar to drag-and-drop FileReader preview)
 export function addPendingUploadPlaceholders(uploadedFiles, originalFiles = null) {
   const thumbnailsContainer = document.getElementById('thumbList');
   

@@ -1,38 +1,19 @@
-/**
- * Drag-and-drop file upload functionality for ePaper interface
- */
-
-import { refreshImages, addPendingUploadPlaceholders } from './ui.js';
-import { apiUpload, API_CONFIG, isSupportedImageFile } from './api.js';
+import { API_CONFIG, isSupportedImageFile } from './api.js';
 import { getElement, toggleClass } from './dom.js';
 
-/**
- * Check if drag event contains files (actual type check happens on drop)
- * @param {DragEvent} e - Drag event
- * @returns {boolean} True if drag contains files
- */
 function hasFiles(e) {
   if (!e.dataTransfer) return false;
   return Array.from(e.dataTransfer.types).includes('Files');
 }
 
-/**
- * Show the drop zone overlay
- */
 function showDropZone() {
   toggleClass('DISPLAY_BOX', 'drag-over', true);
 }
 
-/**
- * Hide the drop zone overlay
- */
 function hideDropZone() {
   toggleClass('DISPLAY_BOX', 'drag-over', false);
 }
 
-/**
- * Handle dragenter event
- */
 function handleDragEnter(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -43,9 +24,6 @@ function handleDragEnter(e) {
   }
 }
 
-/**
- * Handle dragover event
- */
 function handleDragOver(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -58,9 +36,6 @@ function handleDragOver(e) {
   }
 }
 
-/**
- * Handle dragleave event
- */
 function handleDragLeave(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -73,9 +48,6 @@ function handleDragLeave(e) {
   }
 }
 
-/**
- * Handle drop event
- */
 async function handleDrop(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -86,12 +58,10 @@ async function handleDrop(e) {
   const supportedFiles = files.filter(isSupportedImageFile);
   
   if (supportedFiles.length === 0) {
-    // TODO: Add toast notification system for better user feedback
     console.log(`⚠️ No supported image files detected. Supported formats: ${API_CONFIG.SUPPORTED_EXTENSIONS.join(', ')}`);
     return;
   }
   
-  // TODO: Add loading spinner/progress indicator
   console.log(`📤 Uploading ${supportedFiles.length} image file(s)...`);
   
   try {
@@ -103,30 +73,21 @@ async function handleDrop(e) {
   }
 }
 
-/**
- * Upload files to the server
- * @param {File[]} files - Array of files to upload
- */
+
 async function uploadFiles(files) {
-  const formData = new FormData();
+  // Use shared upload module for consistency with Google Photos
+  const { uploadPhotos, handleUploadError } = await import('./photo_upload.js');
   
-  files.forEach(file => {
-    formData.append('files', file);
-  });
-  
-  const result = await apiUpload(API_CONFIG.ENDPOINTS.UPLOAD, formData);
-  console.log('📁 Files saved to pic-raw/, queued for conversion:', result.uploaded_files.map(f => f.filename));
-  
-  // Add placeholder thumbnails for uploaded files with original File objects for preview
-  addPendingUploadPlaceholders(result.uploaded_files, files);
-  
-  // Refresh handled automatically by apiUpload
-  console.log(`${result.count} files queued for conversion`);
+  try {
+    const result = await uploadPhotos(files);
+    console.log(`${result.uploaded_files?.length || 0} files queued for conversion`);
+  } catch (error) {
+    handleUploadError(error, 'drag-and-drop upload');
+    throw error; // Re-throw for existing error handling
+  }
 }
 
-/**
- * Setup drag-and-drop functionality
- */
+
 export function setupDragDrop() {
   const displayBox = getElement('DISPLAY_BOX');
   

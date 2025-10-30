@@ -1,6 +1,6 @@
 # Setup Scripts
 
-This directory contains automated setup scripts for the ePaper Display Project on Raspberry Pi.
+This directory contains setup and environment configuration scripts for the ePaper Display Project on Raspberry Pi.
 
 ## Quick Start
 
@@ -11,42 +11,57 @@ For a fresh Raspberry Pi setup:
 ./scripts/complete_setup.sh
 ```
 
-## Individual Scripts
+## Directory Structure
 
-### 1. `generate_ssl_cert.sh`
-Creates self-signed SSL certificates for HTTPS development.
+### `complete_setup.sh`
+Main orchestrator that runs all setup scripts in the correct order with health checks.
 
+### `environment/` - System Environment Configuration
+Scripts that configure the Pi's system environment (optional but helpful):
+
+- **`setup_avahi.sh`** (requires sudo) - Configures mDNS for `.local` hostname resolution
+
+- **`status.sh`** - Shows current system status and configuration
+
+### `setup/` - Application Setup
+Scripts for application-specific setup (SSL, ngrok, etc.):
+
+- **`generate_ssl_cert.sh`** - Creates self-signed SSL certificates for HTTPS
+- **`setup_ngrok.sh`** - Configures ngrok tunneling for Google Photos OAuth
+- **`get_ngrok_url.sh`** - Utility to retrieve current ngrok URL
+
+## Individual Script Usage
+
+### Environment Configuration
+
+**Avahi/mDNS Setup:**
 ```bash
-./scripts/generate_ssl_cert.sh
+sudo ./scripts/environment/setup_avahi.sh
 ```
+- Fixes Docker bridge network interference
+- Restricts Avahi to WiFi interface (`wlan0`) 
+- Enables `raspberrypi.local` hostname access
 
+
+
+**System Status:**
+```bash
+./scripts/environment/status.sh
+```
+- Shows network configuration, SSL status, Docker status
+- Useful for troubleshooting
+
+### Application Setup
+
+**SSL Certificates:**
+```bash
+./scripts/setup/generate_ssl_cert.sh
+```
 - Creates SSL certificates in `config/ssl/`
 - Enables HTTPS access to `https://raspberrypi.local:5000`
 - Required for Google Photos OAuth (non-localhost domains need HTTPS)
 
-### 2. `setup_avahi.sh` (requires sudo)
-Configures mDNS/Avahi for proper `.local` hostname resolution.
-
-```bash
-sudo ./scripts/setup_avahi.sh
-```
-
-- Fixes Docker bridge network interference
-- Restricts Avahi to WiFi interface (`wlan0`)
-- Enables `raspberrypi.local` hostname access
-
-### 3. `setup_docker_user.sh`
-Adds user to docker group for passwordless Docker commands.
-
-```bash
-./scripts/setup_docker_user.sh
-```
-
-- One-time setup per user
-- **Requires logout/login** to take effect
-- Eliminates need for `sudo docker`
-
-### 4. `complete_setup.sh`
+**Main Setup Script:**
 Runs all setup scripts in the correct order with health checks.
 
 ```bash
