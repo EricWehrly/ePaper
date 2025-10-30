@@ -63,22 +63,54 @@ def register_routes(app):
         """List available images in pic-raw and pic directories"""
         controller = get_controller()
             
-        # Get source images using supported extensions
+        # Get source images using supported extensions with creation times
         source_images = []
         if controller.source_dir.exists():
             for ext in SUPPORTED_IMAGE_EXTENSIONS:
-                source_images.extend([
-                    {"name": f.name, "path": str(f), "type": "source"}
-                    for f in controller.source_dir.glob(f"*{ext}")
-                ])
+                for f in controller.source_dir.glob(f"*{ext}"):
+                    try:
+                        created_time = f.stat().st_ctime
+                        source_images.append({
+                            "name": f.name, 
+                            "path": str(f), 
+                            "type": "source",
+                            "created_time": created_time
+                        })
+                    except OSError:
+                        source_images.append({
+                            "name": f.name, 
+                            "path": str(f), 
+                            "type": "source", 
+                            "created_time": 0
+                        })
+            
+            # Sort source images by creation time, oldest first
+            source_images.sort(key=lambda x: x['created_time'])
         
-        # Get converted images
+        # Get converted images with creation time for sorting
         converted_images = []
         if controller.output_dir.exists():
-            converted_images = [
-                {"name": f.name, "path": str(f), "type": "converted"}
-                for f in controller.output_dir.glob("*.bmp")
-            ]
+            for f in controller.output_dir.glob("*.bmp"):
+                try:
+                    # Use creation time (st_ctime) for chronological ordering
+                    created_time = f.stat().st_ctime
+                    converted_images.append({
+                        "name": f.name, 
+                        "path": str(f), 
+                        "type": "converted",
+                        "created_time": created_time
+                    })
+                except OSError:
+                    # Fallback without timestamp if file access fails
+                    converted_images.append({
+                        "name": f.name, 
+                        "path": str(f), 
+                        "type": "converted",
+                        "created_time": 0
+                    })
+            
+            # Sort by creation time, oldest first
+            converted_images.sort(key=lambda x: x['created_time'])
             
         return jsonify({
             "source_images": source_images,

@@ -71,37 +71,61 @@ export async function refreshImages() {
     const all = images.converted_images || [];
     updateState({ convertedImages: all });
     
-    // Remove placeholders for files that have been converted
+    // Images are now pre-sorted by creation time (newest first) from backend
+    console.log('Current thumbnail ordering: newest first by creation time');
+    
+    // Identify completed conversions and remove their placeholders
     const convertedFilenames = all.map(img => img.name.replace(/\.bmp$/, ''));
+    const completedConversions = [];
+    
     state.pendingUploads.forEach(pending => {
       const baseFilename = pending.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
       if (convertedFilenames.some(converted => converted === baseFilename)) {
+        completedConversions.push(pending.filename);
         removePendingUploadPlaceholder(pending.filename);
       }
     });
     
-    // Clear list and rebuild with current items
-    list.innerHTML = '';
+    // Get existing thumbnails to avoid flashing during rebuild
+    const existingThumbnails = Array.from(list.children);
+    const existingImagePaths = existingThumbnails
+      .filter(thumb => thumb.querySelector('img'))
+      .map(thumb => thumb.querySelector('img').getAttribute('src'));
     
-    // Add placeholder thumbnails first (newest on top)
-    state.pendingUploads.forEach(pending => {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'thumb placeholder-thumb';
-      placeholder.id = `placeholder-${pending.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      placeholder.innerHTML = `
-        <div class="placeholder-content">
-          <div class="placeholder-spinner"></div>
-          <div class="placeholder-text">Converting...</div>
-          <div class="placeholder-filename">${pending.filename}</div>
-        </div>
-      `;
-      list.appendChild(placeholder);
-    });
+    // Only rebuild if the order has significantly changed, otherwise just add new items
+    const shouldFullRebuild = existingThumbnails.length === 0 || completedConversions.length > 0;
+    
+    if (shouldFullRebuild) {
+      // Clear and rebuild (only when necessary)
+      list.innerHTML = '';
+      
+      // Add placeholder thumbnails first (newest on top)
+      state.pendingUploads.forEach(pending => {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'thumb placeholder-thumb';
+        placeholder.id = `placeholder-${pending.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        placeholder.innerHTML = `
+          <div class="placeholder-content">
+            <div class="placeholder-spinner"></div>
+            <div class="placeholder-text">Converting...</div>
+            <div class="placeholder-filename">${pending.filename}</div>
+          </div>
+        `;
+        list.appendChild(placeholder);
+      });
+    }
     
     all.forEach((item, idx) => {
+      const imageSrc = '/static_image?path=' + encodeURIComponent(item.path);
+      
+      // Skip if thumbnail already exists (unless doing full rebuild)
+      if (!shouldFullRebuild && existingImagePaths.includes(imageSrc)) {
+        return;
+      }
+      
       const thumb = el('div', { class: 'thumb' });
       const img = el('img', {
-        src: '/static_image?path=' + encodeURIComponent(item.path),
+        src: imageSrc,
         alt: item.name,
         title: item.name
       });
@@ -120,7 +144,17 @@ export async function refreshImages() {
           document.querySelectorAll('.thumb').forEach(t => t.classList.remove('disabled'));
         }
       });
-      list.appendChild(thumb);
+      
+      // Insert in chronological order (newest first, after placeholders)
+      const placeholders = list.querySelectorAll('.placeholder-thumb');
+      if (placeholders.length > 0) {
+        // Insert after the last placeholder
+        const lastPlaceholder = placeholders[placeholders.length - 1];
+        list.insertBefore(thumb, lastPlaceholder.nextSibling);
+      } else {
+        // No placeholders, add to the beginning (newest first)
+        list.insertBefore(thumb, list.firstChild);
+      }
     });
   } catch (e) {
     console.error(e);
@@ -236,10 +270,10 @@ export function scheduleNextRefresh() {
 }
 
 // 📋 Add placeholder thumbnails for files being uploaded/converted
-export function addPendingUploadPlaceholders(uploadedFiles) {
+export function addPendingUploadPlaceholders(uploadedFiles, originalFiles = null) {
   const thumbnailsContainer = document.getElementById('thumbList');
   
-  uploadedFiles.forEach(file => {
+  uploadedFiles.forEach((file, index) => {
     // Skip if placeholder already exists
     if (state.pendingUploads.some(p => p.filename === file.filename)) {
       return;
@@ -251,17 +285,40 @@ export function addPendingUploadPlaceholders(uploadedFiles) {
       timestamp: Date.now()
     });
     
-    // Create placeholder thumbnail
+    // Create placeholder thumbnail with optional image preview
     const placeholder = document.createElement('div');
     placeholder.className = 'thumb placeholder-thumb';
     placeholder.id = `placeholder-${file.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    placeholder.innerHTML = `
-      <div class="placeholder-content">
-        <div class="placeholder-spinner"></div>
-        <div class="placeholder-text">Converting...</div>
-        <div class="placeholder-filename">${file.filename}</div>
-      </div>
-    `;
+    
+    // Check if we have the original File object for preview
+    const originalFile = originalFiles && originalFiles[index];
+    
+    if (originalFile && originalFile instanceof File && originalFile.type.startsWith('image/')) {
+      // Create preview with low-opacity original image
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        placeholder.innerHTML = `
+          <div class="placeholder-content">
+            <img src="${e.target.result}" class="placeholder-image" alt="${file.filename}" />
+            <div class="placeholder-overlay">
+              <div class="placeholder-spinner"></div>
+              <div class="placeholder-text">Converting...</div>
+            </div>
+            <div class="placeholder-filename">${file.filename}</div>
+          </div>
+        `;
+      };
+      reader.readAsDataURL(originalFile);
+    } else {
+      // Fallback to spinner-only placeholder (for Google Photos or if no File object)
+      placeholder.innerHTML = `
+        <div class="placeholder-content">
+          <div class="placeholder-spinner"></div>
+          <div class="placeholder-text">Converting...</div>
+          <div class="placeholder-filename">${file.filename}</div>
+        </div>
+      `;
+    }
     
     // Add to thumbnails container (prepend to show newest first)
     thumbnailsContainer.insertBefore(placeholder, thumbnailsContainer.firstChild);

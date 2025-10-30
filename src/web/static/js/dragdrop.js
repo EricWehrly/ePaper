@@ -117,8 +117,8 @@ async function uploadFiles(files) {
   const result = await apiUpload(API_CONFIG.ENDPOINTS.UPLOAD, formData);
   console.log('📁 Files saved to pic-raw/, queued for conversion:', result.uploaded_files.map(f => f.filename));
   
-  // Add placeholder thumbnails for uploaded files
-  addPendingUploadPlaceholders(result.uploaded_files);
+  // Add placeholder thumbnails for uploaded files with original File objects for preview
+  addPendingUploadPlaceholders(result.uploaded_files, files);
   
   // Refresh handled automatically by apiUpload
   console.log(`${result.count} files queued for conversion`);
