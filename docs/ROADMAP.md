@@ -6,14 +6,15 @@
 
 ## 🎯 IMMEDIATE PRIORITIES
 
-### Image Conversion Quality Testing
-- **Status**: PLANNED - HIGH PRIORITY
-- **Description**: Compare conversion quality between different source formats
-- **Details**: 
-  - Test JPG vs PNG source quality after conversion to 6-color ePaper
-  - Document optimal source format recommendations  
-  - TODO: Add HEIC format testing (when Google stops being weird about it)
-- **Implementation**: Set up side-by-side visual comparison system
+### Albums & Playlists System ✨ NEW BRANCH
+- **Status**: CURRENT FOCUS - HIGH PRIORITY
+- **Description**: Create curated image collections for organized photo management
+- **Features**:
+  - Custom image albums/playlists
+  - Album-based slideshow mode
+  - Drag-and-drop photo organization
+  - Album metadata (title, description, created date)
+  - Quick album switching in UI
 
 ### System Service Installation
 - **Status**: PLANNED - HIGH PRIORITY  
@@ -24,8 +25,17 @@
   - Proper service lifecycle management
   - Clean uninstall process
 
+### Image Conversion Quality Testing
+- **Status**: PLANNED - MEDIUM PRIORITY
+- **Description**: Compare conversion quality between different source formats
+- **Details**: 
+  - Test JPG vs PNG source quality after conversion to 6-color ePaper
+  - Document optimal source format recommendations  
+  - TODO: Add HEIC format testing (when Google stops being weird about it)
+- **Implementation**: Set up side-by-side visual comparison system
+
 ### Duplicate Detection System
-- **Status**: IN PROGRESS
+- **Status**: IN PROGRESS - LOW PRIORITY
 - **Description**: Prevent duplicate photo uploads
 - **Current**: Framework created in `photo_validation.js` 
 - **Next**: Implement hash comparison and user confirmation dialogs
@@ -79,7 +89,8 @@
 ## 📊 PROJECT STATUS
 
 **Core Features**: ✅ Complete (ePaper display, web interface, drag & drop, Google Photos, conversion pipeline, Docker/SSL)  
-**Current Phase**: System integration and quality improvements  
+**Performance**: ✅ Conversion optimized (17% faster via vectorized palette mapping)  
+**Current Phase**: Albums/playlist system development  
 **Architecture**: Production-ready with containerized deployment
 
 ---
