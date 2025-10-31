@@ -1,8 +1,8 @@
 # Terraform
 .terraform/
 .terraform.lock.hcl
-terraform.tfstate
-terraform.tfstate.backup
+# terraform.tfstate          # TODO: Re-enable after S3 backend migration
+# terraform.tfstate.backup   # TODO: Re-enable after S3 backend migration
 terraform.tfvars
 *.tfplan
 
