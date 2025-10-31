@@ -57,7 +57,8 @@ class RaspberryPi:
         self.GPIO_DC_PIN     = gpiozero.LED(self.DC_PIN)
         # self.GPIO_CS_PIN     = gpiozero.LED(self.CS_PIN)
         self.GPIO_PWR_PIN    = gpiozero.LED(self.PWR_PIN)
-        self.GPIO_BUSY_PIN   = gpiozero.Button(self.BUSY_PIN, pull_up = False)
+        # Use InputDevice instead of Button to avoid edge detection issues
+        self.GPIO_BUSY_PIN   = gpiozero.InputDevice(self.BUSY_PIN, pull_up = False)
 
         
 
