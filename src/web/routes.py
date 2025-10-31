@@ -458,6 +458,109 @@ def register_routes(app):
             logger.error(f"Get playlist failed: {e}")
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/playlists/<playlist_id>/play', methods=['POST'])
+    def play_playlist(playlist_id):
+        """Start playing a specific playlist"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({'error': 'Controller not initialized'}), 500
+            
+            # Get start index from request data
+            data = request.get_json(force=True, silent=True) or {}
+            start_index = safe_int(data.get('start_index', 0), minimum=0) or 0
+            
+            # Secure the playlist ID
+            safe_playlist_id = secure_filename(playlist_id)
+            if not safe_playlist_id or safe_playlist_id != playlist_id:
+                return jsonify({'error': 'Invalid playlist ID'}), 400
+            
+            # Start the playlist
+            success = controller.start_playlist(playlist_id, start_index)
+            if success:
+                return jsonify({
+                    'success': True,
+                    'playlist_id': playlist_id,
+                    'start_index': start_index,
+                    'mode': 'playlist'
+                })
+            else:
+                return jsonify({'error': 'Failed to start playlist'}), 500
+                
+        except FileNotFoundError as e:
+            logger.error(f"Playlist not found: {e}")
+            return jsonify({'error': str(e)}), 404
+        except ValueError as e:
+            logger.error(f"Invalid playlist: {e}")
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            logger.error(f"Play playlist failed: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/playlists/stop', methods=['POST'])
+    def stop_playlist():
+        """Stop current playlist playback"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({'error': 'Controller not initialized'}), 500
+            
+            controller.stop_playlist()
+            return jsonify({
+                'success': True,
+                'message': 'Playlist stopped',
+                'mode': 'image'
+            })
+            
+        except Exception as e:
+            logger.error(f"Stop playlist failed: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/playlists/current', methods=['GET'])
+    def get_current_playlist():
+        """Get information about currently playing playlist"""
+        try:
+            controller = current_app.epaper_controller
+            if not controller:
+                return jsonify({'error': 'Controller not initialized'}), 500
+            
+            playlist_settings = controller.settings.get('playlist', {})
+            current_id = playlist_settings.get('current_id')
+            
+            if not current_id or controller.settings.get('mode') != 'playlist':
+                return jsonify({
+                    'playing': False,
+                    'playlist_id': None,
+                    'current_index': 0,
+                    'mode': controller.settings.get('mode', 'image')
+                })
+            
+            # Load playlist data for additional info
+            playlist_file = Path.cwd() / 'config' / 'playlists' / f'{current_id}.json'
+            playlist_data = {}
+            if playlist_file.exists():
+                try:
+                    import json
+                    with open(playlist_file, 'r') as f:
+                        playlist_data = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    pass
+            
+            return jsonify({
+                'playing': True,
+                'playlist_id': current_id,
+                'current_index': playlist_settings.get('current_index', 0),
+                'total_images': len(playlist_data.get('images', [])),
+                'playlist_name': playlist_data.get('name', current_id),
+                'loop': playlist_settings.get('loop', True),
+                'mode': 'playlist',
+                'carousel_active': getattr(controller, '_carousel_active', False)
+            })
+            
+        except Exception as e:
+            logger.error(f"Get current playlist failed: {e}")
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/ngrok-info', methods=['GET'])
     def get_ngrok_info():
         """Get ngrok tunnel information for OAuth redirects"""

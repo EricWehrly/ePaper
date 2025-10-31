@@ -68,10 +68,15 @@ class ePaperController:
         self.state_path = self.config_dir / 'state.json'
         # Default runtime settings (will be overridden by persisted ones if available)
         self.settings = {
-            'mode': 'image',           # 'image' or 'carousel'
+            'mode': 'image',           # 'image', 'carousel', or 'playlist'
             'autoplay': False,         # server-driven carousel active
             'interval_sec': 30,        # seconds between images in carousel
             'orientation': 'portrait', # 'portrait' | 'landscape'
+            'playlist': {              # playlist-specific settings
+                'current_id': None,    # ID of currently playing playlist
+                'current_index': 0,    # Current image index in playlist
+                'loop': True           # Whether to loop playlist
+            },
             'ngrok_redirect': {        # ngrok redirect banner configuration
                 'enabled': True,
                 'countdown_seconds': 7
@@ -460,13 +465,21 @@ class ePaperController:
         self._save_settings()
 
     def set_mode(self, mode: str):
-        if mode not in ('image','carousel'):
+        if mode not in ('image','carousel','playlist'):
             return
+        
+        # Stop current mode
+        if self.settings['mode'] == 'carousel':
+            self.stop_carousel()
+        elif self.settings['mode'] == 'playlist':
+            self.stop_playlist()
+        
         self.settings['mode'] = mode
         if mode == 'carousel':
             self.start_carousel()
-        else:
-            self.stop_carousel()
+        elif mode == 'playlist':
+            # Playlist mode requires explicit start with playlist ID
+            pass
         self._save_settings()
 
     def next_image(self):
@@ -496,6 +509,149 @@ class ePaperController:
                 idx = 0
         self.show_image(str(images[idx]))
         return self.current_image
+    
+    # ---------------- Playlist Control ----------------
+    def start_playlist(self, playlist_id: str, start_index: int = 0):
+        """Start playlist playback with specified playlist ID."""
+        import json
+        
+        # Stop any current carousel
+        if self._carousel_thread and self._carousel_thread.is_alive():
+            self.stop_carousel()
+        
+        # Load playlist data
+        playlist_file = Path.cwd() / 'config' / 'playlists' / f'{playlist_id}.json'
+        if not playlist_file.exists():
+            raise FileNotFoundError(f"Playlist '{playlist_id}' not found")
+        
+        try:
+            with open(playlist_file, 'r') as f:
+                playlist_data = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            raise ValueError(f"Failed to load playlist '{playlist_id}': {e}")
+        
+        if not playlist_data.get('images'):
+            raise ValueError(f"Playlist '{playlist_id}' has no images")
+        
+        # Update settings
+        self.settings['mode'] = 'playlist'
+        self.settings['autoplay'] = True
+        self.settings['playlist']['current_id'] = playlist_id
+        self.settings['playlist']['current_index'] = max(0, min(start_index, len(playlist_data['images']) - 1))
+        self._save_settings()
+        
+        # Start playlist thread
+        if self._carousel_thread and self._carousel_thread.is_alive():
+            self._carousel_stop_event.set()
+            self._carousel_thread.join(timeout=2)
+        
+        self._carousel_stop_event.clear()
+        self._carousel_thread = threading.Thread(target=self._playlist_loop, args=(playlist_data,), daemon=True)
+        self._carousel_thread.start()
+        
+        return True
+
+    def stop_playlist(self):
+        """Stop playlist playback."""
+        if self._carousel_thread and self._carousel_thread.is_alive():
+            self._carousel_stop_event.set()
+            self._carousel_thread.join(timeout=2)
+        
+        self.settings['autoplay'] = False
+        self.settings['mode'] = 'image'
+        self.settings['playlist']['current_id'] = None
+        self.settings['playlist']['current_index'] = 0
+        self._save_settings()
+
+    def _playlist_loop(self, playlist_data):
+        """Internal playlist playback loop."""
+        self._carousel_active = True
+        
+        try:
+            playlist_id = self.settings['playlist']['current_id']
+            images = playlist_data['images']
+            delay_ms = playlist_data.get('delay', 5000)
+            interval_sec = max(1, delay_ms // 1000)  # Convert ms to seconds
+            
+            # Start from saved index
+            current_index = self.settings['playlist']['current_index']
+            
+            while not self._carousel_stop_event.is_set() and self.running:
+                try:
+                    # Validate index
+                    if current_index >= len(images):
+                        if self.settings['playlist']['loop']:
+                            current_index = 0
+                        else:
+                            # Playlist finished, stop
+                            break
+                    
+                    image_name = images[current_index]
+                    image_path = self.output_dir / image_name
+                    
+                    # Check if image exists
+                    if not image_path.exists():
+                        logger.warning(f"Playlist image not found: {image_name}")
+                        current_index += 1
+                        continue
+                    
+                    # Wait for proper interval from last display completion
+                    if self._last_display_completion:
+                        elapsed = time.time() - self._last_display_completion
+                        remaining = max(0, interval_sec - elapsed)
+                        if remaining > 0:
+                            # Wait for the remaining time in 0.1s increments
+                            for _ in range(int(remaining * 10)):
+                                if self._carousel_stop_event.is_set() or not self.running:
+                                    break
+                                time.sleep(0.1)
+                    
+                    # Check again if we should stop before displaying
+                    if self._carousel_stop_event.is_set() or not self.running:
+                        break
+                    
+                    # Update index before display for persistence
+                    self.settings['playlist']['current_index'] = current_index
+                    self._save_settings()
+                    
+                    # Set busy state and display image
+                    with self._busy_lock:
+                        self._set_busy(True)
+                        self.current_image = str(image_path)
+                        self._save_state()
+                        
+                        try:
+                            if self.display_available:
+                                self.display_manager.show_image(str(image_path))
+                                logger.info(f"Playlist '{playlist_id}': displayed {image_name} ({current_index + 1}/{len(images)})")
+                            else:
+                                # Graceful failure: log but continue playlist
+                                logger.warning(f"Display not available, but playlist '{playlist_id}' continues: {image_name}")
+                            
+                            # Track completion timestamp
+                            self._last_display_completion = time.time()
+                            
+                            # Keep busy state briefly
+                            time.sleep(0.5)
+                        finally:
+                            self._set_busy(False)
+                    
+                    # Move to next image
+                    current_index += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error in playlist loop: {e}")
+                    time.sleep(1)  # Brief pause before retry
+                    current_index += 1
+                    
+        except Exception as e:
+            logger.error(f"Playlist loop error: {e}")
+        finally:
+            self._carousel_active = False
+            # Save final state
+            if current_index < len(images):
+                self.settings['playlist']['current_index'] = current_index
+                self._save_settings()
         
     def run_standalone(self):
         """Run in standalone mode - convert and display images in a loop"""
@@ -555,10 +711,25 @@ class ePaperController:
                 except Exception:
                     pass
                 
-                # Auto-start carousel if settings indicate it should be running
-                if self.settings.get('mode') == 'carousel' and self.settings.get('autoplay'):
-                    logger.info("Auto-starting carousel based on persisted settings")
-                    self.start_carousel()
+                # Auto-start carousel or playlist if settings indicate it should be running
+                if self.settings.get('autoplay'):
+                    mode = self.settings.get('mode')
+                    if mode == 'carousel':
+                        logger.info("Auto-starting carousel based on persisted settings")
+                        self.start_carousel()
+                    elif mode == 'playlist':
+                        playlist_id = self.settings.get('playlist', {}).get('current_id')
+                        if playlist_id:
+                            current_index = self.settings.get('playlist', {}).get('current_index', 0)
+                            logger.info(f"Auto-resuming playlist '{playlist_id}' from index {current_index}")
+                            try:
+                                self.start_playlist(playlist_id, current_index)
+                            except Exception as e:
+                                logger.warning(f"Failed to auto-resume playlist '{playlist_id}': {e}")
+                                # Fall back to image mode
+                                self.settings['mode'] = 'image'
+                                self.settings['autoplay'] = False
+                                self._save_settings()
             
             # Start web server in a background thread so we can handle signals
             import threading

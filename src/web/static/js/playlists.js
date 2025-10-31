@@ -5,6 +5,9 @@
 import { getElement } from './dom.js';
 import { apiGet, apiPost } from './api.js';
 
+// Track current preview playlist for click-to-play functionality
+let currentPreviewPlaylistId = null;
+
 /**
  * Initialize playlist functionality
  */
@@ -188,20 +191,35 @@ function renderPlaylists(playlists) {
 /**
  * Play a playlist
  * @param {string} playlistId - ID of playlist to play
+ * @param {number} startIndex - Optional starting index (default: 0)
  */
-async function playPlaylist(playlistId) {
+async function playPlaylist(playlistId, startIndex = 0) {
   try {
-    console.log(`Starting playlist: ${playlistId}`);
-    // TODO: Call backend API to start playlist
-    // await apiPost('/api/playlists/' + playlistId + '/play');
+    console.log(`Starting playlist: ${playlistId} at index ${startIndex}`);
     
-    // Update current playlist display
-    const currentPlaylistName = document.getElementById('currentPlaylistName');
-    if (currentPlaylistName) {
-      currentPlaylistName.textContent = playlistId;
+    // Call backend API to start playlist
+    const response = await apiPost(`/api/playlists/${playlistId}/play`, {
+      start_index: startIndex
+    });
+    
+    if (response.success) {
+      console.log(`Playlist ${playlistId} started successfully`);
+      
+      // Update current playlist display
+      const currentPlaylistName = document.getElementById('currentPlaylistName');
+      if (currentPlaylistName) {
+        currentPlaylistName.textContent = response.playlist_id || playlistId;
+      }
+      
+      // Show success message (could add toast notification here)
+      console.log('Playlist playback started');
+    } else {
+      throw new Error(response.error || 'Unknown error starting playlist');
     }
   } catch (error) {
     console.error('Failed to play playlist:', error);
+    // Could show error toast notification here
+    alert(`Failed to start playlist: ${error.message}`);
   }
 }
 
@@ -215,6 +233,9 @@ async function showPlaylistPreview(playlistId) {
     
     // Switch to preview tab
     switchDisplayTab('preview');
+    
+    // Track current preview playlist
+    currentPreviewPlaylistId = playlistId;
     
     // Load actual playlist data from API
     const playlist = await apiGet(`/api/playlists/${playlistId}`);
@@ -261,11 +282,40 @@ function renderPreviewImages(images) {
     // Add click handler to start playlist at this index
     imageDiv.addEventListener('click', () => {
       console.log(`Starting playlist at index ${index}`);
-      // TODO: Implement start at index functionality
+      // Use tracked preview playlist ID
+      if (currentPreviewPlaylistId) {
+        playPlaylist(currentPreviewPlaylistId, index);
+      }
     });
 
     previewImages.appendChild(imageDiv);
   });
+}
+
+/**
+ * Stop current playlist playback
+ */
+async function stopCurrentPlaylist() {
+  try {
+    console.log('Stopping current playlist');
+    
+    const response = await apiPost('/api/playlists/stop');
+    
+    if (response.success) {
+      console.log('Playlist stopped successfully');
+      
+      // Clear current playlist display
+      const currentPlaylistName = document.getElementById('currentPlaylistName');
+      if (currentPlaylistName) {
+        currentPlaylistName.textContent = 'None';
+      }
+    } else {
+      throw new Error(response.error || 'Unknown error stopping playlist');
+    }
+  } catch (error) {
+    console.error('Failed to stop playlist:', error);
+    alert(`Failed to stop playlist: ${error.message}`);
+  }
 }
 
 /**
@@ -278,21 +328,7 @@ function setupPlaylistEventHandlers() {
   // Stop playlist button
   const stopBtn = document.getElementById('stopPlaylist');
   if (stopBtn) {
-    stopBtn.addEventListener('click', async () => {
-      try {
-        console.log('Stopping current playlist');
-        // TODO: Call backend API to stop playlist
-        // await apiPost('/api/playlists/stop');
-        
-        // Clear current playlist display
-        const currentPlaylistName = document.getElementById('currentPlaylistName');
-        if (currentPlaylistName) {
-          currentPlaylistName.textContent = 'None';
-        }
-      } catch (error) {
-        console.error('Failed to stop playlist:', error);
-      }
-    });
+    stopBtn.addEventListener('click', () => stopCurrentPlaylist());
   }
 
   // Clear preview button (if exists)
