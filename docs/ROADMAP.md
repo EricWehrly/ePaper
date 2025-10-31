@@ -26,13 +26,24 @@
   - Clean uninstall process
 
 ### Image Conversion Quality Testing
-- **Status**: PLANNED - MEDIUM PRIORITY
-- **Description**: Compare conversion quality between different source formats
-- **Details**: 
-  - Test JPG vs PNG source quality after conversion to 6-color ePaper
-  - Document optimal source format recommendations  
-  - TODO: Add HEIC format testing (when Google stops being weird about it)
-- **Implementation**: Set up side-by-side visual comparison system
+- **Status**: ✅ COMPLETE - Major optimization achieved
+- **Description**: Optimized conversion pipeline with 110x performance improvement
+- **Completed**: 
+  - PIL quantization implementation (29.7s → 0.27s conversion time)
+  - Enhanced contrast preprocessing to reduce "washed out" appearance
+  - Comprehensive dithering method testing (Floyd-Steinberg selected as optimal)
+  - Legacy conversion settings documented for reference
+- **Future**: Revisit preprocessing optimization for enhanced visual quality (shallow exploration completed)
+
+### Conversion Preset System
+- **Status**: TODO - MEDIUM PRIORITY  
+- **Description**: User-selectable conversion configurations
+- **Features**:
+  - Legacy conversion settings for comparison testing
+  - High contrast, soft enhancement, and other quality presets
+  - Web UI integration for preset selection
+  - A/B testing interface for quality comparison
+  - Per-image-type preference saving
 
 ### Duplicate Detection System
 - **Status**: IN PROGRESS - LOW PRIORITY
