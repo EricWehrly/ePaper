@@ -13,6 +13,18 @@ services:
       - ./pic-raw:/app/pic-raw
       # Mount logs for debugging
       - ./logs:/app/logs
+      # GPIO access for e-Paper hardware
+      - /sys/class/gpio:/sys/class/gpio
+      - /sys/devices/platform:/sys/devices/platform
+      - /sys:/sys:ro
+    # Hardware access for e-Paper display
+    privileged: true
+    devices:
+      - /dev/spidev0.0:/dev/spidev0.0
+      - /dev/spidev0.1:/dev/spidev0.1
+      - /dev/gpiomem:/dev/gpiomem
+      - /dev/gpiochip0:/dev/gpiochip0
+      - /dev/gpiochip1:/dev/gpiochip1
     environment:
       - FLASK_ENV=development
       - PYTHONPATH=/app

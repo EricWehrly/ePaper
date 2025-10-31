@@ -14,6 +14,14 @@ def preprocess_image_for_epaper(image):
     """
     Preprocess image to optimize for e-paper display characteristics.
     
+    Current defaults (October 2025 optimization):
+    - Enhanced contrast: 1.3x (reduces washed-out appearance)
+    - Enhanced color saturation: 1.3x (makes colors more distinct) 
+    - Slight sharpening: 1.1x (counteracts e-paper softness)
+    
+    Legacy settings (pre-optimization): Basic resize only
+    See docs/LEGACY_CONVERSION_SETTINGS.md for historical reference
+    
     Args:
         image: PIL Image object
         
@@ -27,9 +35,10 @@ def preprocess_image_for_epaper(image):
     # Resize to display resolution with good resampling
     image = resize_image_to_display(image)
     
-    # Enhance contrast slightly for better e-paper visibility
+    # NEW DEFAULT: Enhanced contrast for better e-paper visibility 
+    # (Updated from 1.2x to 1.3x based on visual testing)
     enhancer = ImageEnhance.Contrast(image)
-    image = enhancer.enhance(1.2)
+    image = enhancer.enhance(1.3)
     
     # Enhance saturation to make colors more distinct
     enhancer = ImageEnhance.Color(image)
