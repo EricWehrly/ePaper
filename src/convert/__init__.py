@@ -13,14 +13,13 @@ into separate modules for extensibility:
 This module exposes the main public API for conversion operations.
 """
 
-from .core import convert_to_6color_with_dithering, convert_image_to_6color_dithered
+from .core import convert_image_to_6color_dithered
 from .batch import convert_images_batch, convert_image_comparison
 from .preprocessing import preprocess_image_for_epaper, resize_image_to_display
 from .dithering import PALETTE_6COLOR, find_closest_palette_color, floyd_steinberg_dither
 
 __all__ = [
     # Core conversion functions
-    'convert_to_6color_with_dithering',
     'convert_image_to_6color_dithered', 
     
     # Batch processing

@@ -10,7 +10,7 @@ from PIL import Image
 from pathlib import Path
 from .dithering import PALETTE_6COLOR, find_closest_palette_color
 from .preprocessing import preprocess_image_for_epaper
-from .core import convert_to_6color_with_dithering, convert_image_to_6color_dithered
+from .core import convert_image_to_6color_dithered
 
 logger = logging.getLogger(__name__)
 
@@ -62,17 +62,8 @@ def convert_image_comparison(input_path, output_dir):
             simple_img.putdata(simple_pixels)
             simple_img.save(simple_output, format='BMP')
             
-            # Dithered conversion (new method)
-            dithered_indices = convert_to_6color_with_dithering(processed_img)
-            
-            dithered_img = Image.new('RGB', (width, height))
-            dithered_pixels = []
-            for row in dithered_indices:
-                for pixel_idx in row:
-                    rgb = tuple(PALETTE_6COLOR[pixel_idx].astype(np.uint8))
-                    dithered_pixels.append(rgb)
-            dithered_img.putdata(dithered_pixels)
-            dithered_img.save(dithered_output, format='BMP')
+            # Dithered conversion (use optimized method)
+            convert_image_to_6color_dithered(input_path, dithered_output)
         
         return {
             'simple': simple_output,
