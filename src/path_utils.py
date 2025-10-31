@@ -58,17 +58,4 @@ def get_lib_path():
     return get_project_root() / 'lib'
 
 
-if __name__ == "__main__":
-    # Test path setup if run directly
-    print("Setting up project paths...")
-    added = setup_project_paths()
-    
-    if added:
-        print("Added paths:")
-        for purpose, path in added.items():
-            print(f"  {purpose}: {path}")
-    else:
-        print("All paths already in sys.path")
-    
-    print(f"Project root: {get_project_root()}")
-    print(f"Lib path: {get_lib_path()}")
+# Removed __main__ block - use cli.py setup-paths command instead

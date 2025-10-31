@@ -20,4 +20,4 @@ fi
 export PYTHONPATH=/app
 
 # Start our custom web server with optional SSL support
-exec python -m src.main --mode=web --host=0.0.0.0 --port=5000 $SSL_MODE
+exec python cli.py --mode=web --host=0.0.0.0 --port=5000 $SSL_MODE

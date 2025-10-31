@@ -372,19 +372,4 @@ def cleanup_old_files(directory_path: Union[str, Path],
         raise FileSystemError(f"Cleanup failed: {e}")
 
 
-if __name__ == "__main__":
-    # Test filesystem operations if run directly
-    logging.basicConfig(level=logging.DEBUG)
-    
-    test_dir = Path("test_fs")
-    ensure_directory(test_dir)
-    
-    test_files = scan_directory(test_dir, {'.txt', '.py'})
-    print(f"Found {len(test_files)} files")
-    
-    # Cleanup
-    try:
-        test_dir.rmdir()
-        print("Test directory cleaned up")
-    except OSError:
-        print("Test directory not empty, leaving it")
+# Removed __main__ block - use cli.py test-filesystem command instead

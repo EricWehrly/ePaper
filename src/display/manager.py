@@ -273,17 +273,4 @@ class DisplayManager:
         }
 
 
-if __name__ == "__main__":
-    # Test display functionality if run directly
-    logging.basicConfig(level=logging.DEBUG)
-    
-    try:
-        display = DisplayManager()
-        display.initialize()
-        
-        info = display.get_display_info()
-        print(f"Display info: {info}")
-        
-    except DisplayError as e:
-        print(f"Display test failed: {e}")
-        sys.exit(1)
+# Removed __main__ block - use cli.py test-display command instead
