@@ -156,6 +156,7 @@ body {
     background-position: 0 0, 2px 3px, 0 0;
     margin: 0;
     padding: 20px;
+    padding-top: 0;
     color: var(--text);
 }
 
@@ -178,17 +179,69 @@ h1 {
 .display-box {
     flex: 1;
     background: var(--panel-bg);
-    background-image: radial-gradient(circle at 2px 2px, var(--subtle-dot) 1px, transparent 0);
-    background-size: 20px 20px;
     border: 1px solid var(--muted);
     border-radius: var(--card-radius);
-    padding: var(--card-padding);
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     height: 420px;
     box-shadow: var(--box-shadow);
     position: relative;
+    overflow: hidden;
+}
+
+/* Display tabs */
+.display-tab-nav {
+    display: flex;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--muted);
+    border-radius: var(--card-radius) var(--card-radius) 0 0;
+}
+
+.display-tab-btn {
+    flex: 1;
+    padding: 8px 16px;
+    background: var(--bg-base); /* Inactive tabs use beige */
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--control-text);
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.display-tab-btn:hover {
+    background: var(--muted-2);
+    color: var(--primary-text);
+}
+
+.display-tab-btn.active {
+    background: var(--panel-bg); /* Active tabs use white */
+    color: var(--accent-blue);
+    border-bottom-color: var(--accent-blue);
+}
+
+.display-tab-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.display-tab-pane {
+    display: none;
+    width: 100%;
+    height: 100%;
+    padding: var(--card-padding);
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: var(--panel-bg);
+    background-image: radial-gradient(circle at 2px 2px, var(--subtle-dot) 1px, transparent 0);
+    background-size: 20px 20px;
+}
+
+.display-tab-pane.active {
+    display: flex;
 }
 
 .display-box img { max-width: 100%; max-height: 100%; }
@@ -273,16 +326,70 @@ h1 {
 
 .preview-status { position: absolute; left: 12px; bottom: 8px; font-size: 0.85rem; color: #444; }
 
-.thumbs {
+/* Tabbed Container Styles */
+.tabbed-container {
     width: 320px;
     background: transparent;
-    background-image: none;
     border: 1px solid var(--muted);
     border-radius: var(--card-radius);
-    padding: 12px;
-    height: 420px;
-    overflow: auto;
     box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+.tab-nav {
+    display: flex;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--muted);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--muted); /* Inactive tabs use beige */
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--control-text);
+    transition: all 0.2s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+    background: var(--muted-2);
+    color: var(--primary-text);
+}
+
+.tab-btn.active {
+    background: var(--panel-bg); /* Active tabs use white */
+    color: var(--accent-blue);
+    border-bottom-color: var(--accent-blue);
+}
+
+.tab-content {
+    height: 420px;
+    overflow: hidden;
+}
+
+.tab-pane {
+    display: none;
+    height: 100%;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.thumbs {
+    width: 100%;
+    background: transparent;
+    background-image: none;
+    border: none;
+    border-radius: 0;
+    padding: 12px;
+    height: 100%;
+    overflow: auto;
+    box-shadow: none;
     /* cross-browser scrollbar */
     scrollbar-width: thin; /* Firefox */
     scrollbar-color: var(--accent-blue) var(--bg-base); /* Firefox */
@@ -315,6 +422,228 @@ h1 {
 
 .thumb.disabled { opacity: 0.5; cursor: default; }
 .thumb.disabled img { filter: grayscale(60%) blur(0.5px); }
+
+/* Playlist Styles */
+.playlists-container {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    padding: 12px;
+    overflow: auto;
+}
+
+.playlist-list-view, .playlist-editor-view {
+    height: 100%;
+}
+
+.playlist-header, .playlist-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--muted-2);
+}
+
+.playlist-header h3, .playlist-editor-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--control-text);
+    font-weight: 600;
+}
+
+.playlist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.playlist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--panel-spot);
+    border: 1px solid var(--muted-2);
+    border-radius: var(--small-radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.playlist-item:hover {
+    background: var(--muted-2);
+    border-color: var(--accent-blue);
+}
+
+.playlist-info {
+    flex: 1;
+}
+
+.playlist-name {
+    font-weight: 500;
+    color: var(--primary-text);
+    margin-bottom: 4px;
+}
+
+.playlist-count {
+    font-size: 0.75rem;
+    color: var(--secondary-text); /* Use darker secondary text for better contrast */
+}
+
+.playlist-actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* Playlist Editor Styles */
+.playlist-meta {
+    margin-bottom: 16px;
+}
+
+.playlist-name-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--muted-2);
+    border-radius: var(--small-radius);
+    font-size: 0.875rem;
+    background: var(--bg-base);
+    color: var(--primary-text);
+}
+
+.playlist-name-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.playlist-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.playlist-item-editor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--panel-spot);
+    border: 1px solid var(--muted-2);
+    border-radius: var(--small-radius);
+    font-size: 0.875rem;
+}
+
+.item-type {
+    padding: 2px 6px;
+    background: var(--accent-blue);
+    color: white;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    min-width: 45px;
+    text-align: center;
+}
+
+.item-content {
+    flex: 1;
+    color: var(--primary-text);
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+}
+
+.item-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.drop-zone {
+    border: 2px dashed var(--muted-2);
+    border-radius: var(--small-radius);
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    background: var(--panel-spot);
+    transition: all 0.2s ease;
+}
+
+/* Playlist Preview Styles */
+.playlist-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+}
+
+.preview-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.preview-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 8px;
+    padding: 12px;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.preview-image {
+    aspect-ratio: 1;
+    border: 1px solid var(--muted-2);
+    border-radius: var(--small-radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.preview-image:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.preview-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.preview-image .image-index {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+/* Updated playlist styles */
+.current-playlist {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+}
+
+.current-label {
+    color: var(--secondary-text); /* Use darker text for better contrast */
+}
+
+.current-name {
+    color: var(--accent-blue);
+    font-weight: 500;
+}
 
 /* Drag-and-drop styles */
 .display-box.drag-over {

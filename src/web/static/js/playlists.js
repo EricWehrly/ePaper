@@ -1,0 +1,335 @@
+/**
+ * Playlist management functionality for ePaper interface
+ */
+
+import { getElement } from './dom.js';
+import { apiGet, apiPost } from './api.js';
+
+/**
+ * Initialize playlist functionality
+ */
+export function initializePlaylists() {
+  console.log('Initializing playlists module');
+  
+  // Setup tab switching between Thumbs and Playlists
+  setupTabSwitching();
+  
+  // Setup display tab functionality
+  setupDisplayTabs();
+  
+  // Setup playlist event handlers and load playlists
+  setupPlaylistEventHandlers();
+  
+  console.log('Playlists module initialized');
+}
+
+/**
+ * Setup tab switching between Thumbs and Playlists
+ */
+function setupTabSwitching() {
+  const thumbsTabBtn = getElement('THUMBS_TAB_BTN');
+  const playlistsTabBtn = getElement('PLAYLISTS_TAB_BTN');
+  const thumbsTab = getElement('THUMBS_TAB');
+  const playlistsTab = getElement('PLAYLISTS_TAB');
+
+  if (!thumbsTabBtn || !playlistsTabBtn || !thumbsTab || !playlistsTab) {
+    console.warn('Tab elements not found - playlist tabs not initialized');
+    return;
+  }
+
+  // Thumbs tab button click
+  thumbsTabBtn.addEventListener('click', () => {
+    switchTab('thumbs');
+  });
+
+  // Playlists tab button click
+  playlistsTabBtn.addEventListener('click', () => {
+    switchTab('playlists');
+  });
+}
+
+/**
+ * Switch to the specified tab
+ * @param {string} tabName - Name of tab to switch to ('thumbs' or 'playlists')
+ */
+function switchTab(tabName) {
+  // Update button states
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+  // Update tab content visibility
+  document.querySelectorAll('.tab-pane').forEach(pane => {
+    pane.classList.remove('active');
+  });
+  document.getElementById(`${tabName}Tab`).classList.add('active');
+
+  console.log(`Switched to ${tabName} tab`);
+}
+
+/**
+ * Setup display area tabs (Display/Preview)
+ */
+function setupDisplayTabs() {
+  const displayTabBtn = document.getElementById('displayTabBtn');
+  const previewTabBtn = document.getElementById('previewTabBtn');
+  const displayTabPane = document.getElementById('displayTabPane');
+  const previewTabPane = document.getElementById('previewTabPane');
+
+  if (!displayTabBtn || !previewTabBtn || !displayTabPane || !previewTabPane) {
+    console.warn('Display tab elements not found');
+    return;
+  }
+
+  // Display tab button click
+  displayTabBtn.addEventListener('click', () => {
+    switchDisplayTab('display');
+  });
+
+  // Preview tab button click
+  previewTabBtn.addEventListener('click', () => {
+    switchDisplayTab('preview');
+  });
+}
+
+/**
+ * Switch display area tab
+ * @param {string} tabName - Name of tab to switch to ('display' or 'preview')
+ */
+function switchDisplayTab(tabName) {
+  // Update button states
+  document.querySelectorAll('.display-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+  // Update tab content visibility
+  document.querySelectorAll('.display-tab-pane').forEach(pane => {
+    pane.classList.remove('active');
+  });
+  document.getElementById(`${tabName}TabPane`).classList.add('active');
+
+  console.log(`Switched to ${tabName} display tab`);
+}
+
+/**
+ * Load playlists from server
+ */
+async function loadPlaylists() {
+  try {
+    const response = await apiGet('/api/playlists');
+    if (response.playlists) {
+      // Transform server data to match UI expectations
+      const playlists = response.playlists.map(playlist => ({
+        id: playlist.id,
+        name: playlist.name || 'Untitled Playlist',
+        imageCount: playlist.images ? playlist.images.length : 0,
+        delay: playlist.delay || 5000
+      }));
+      
+      renderPlaylists(playlists);
+    } else {
+      console.warn('No playlists found');
+      renderPlaylists([]);
+    }
+  } catch (error) {
+    console.error('Failed to load playlists:', error);
+    // Fallback to mock data for development
+    const mockPlaylists = [
+      { id: 'morning', name: 'Morning Slideshow', imageCount: 4, delay: 10000 },
+      { id: 'tech', name: 'Tech Gallery', imageCount: 6, delay: 15000 },
+      { id: 'quick', name: 'Quick Rotation', imageCount: 2, delay: 3000 }
+    ];
+    renderPlaylists(mockPlaylists);
+  }
+}
+
+/**
+ * Render playlist list
+ * @param {Array} playlists - Array of playlist objects
+ */
+function renderPlaylists(playlists) {
+  const playlistList = document.getElementById('playlistList');
+  if (!playlistList) return;
+
+  playlistList.innerHTML = '';
+
+  playlists.forEach(playlist => {
+    const playlistItem = document.createElement('div');
+    playlistItem.className = 'playlist-item';
+    playlistItem.innerHTML = `
+      <div class="playlist-info">
+        <div class="playlist-name">${playlist.name}</div>
+        <div class="playlist-count">${playlist.imageCount} images • ${playlist.delay/1000}s delay</div>
+      </div>
+      <div class="playlist-actions">
+        <button class="ctl-btn control primary small" data-playlist-id="${playlist.id}">Play</button>
+        <button class="ctl-btn control small" data-playlist-id="${playlist.id}" data-action="preview">Preview</button>
+      </div>
+    `;
+
+    // Add event listeners
+    const playBtn = playlistItem.querySelector('[data-action="play"]') || playlistItem.querySelector('[data-playlist-id]:not([data-action])');
+    const previewBtn = playlistItem.querySelector('[data-action="preview"]');
+
+    if (playBtn) {
+      playBtn.addEventListener('click', () => playPlaylist(playlist.id));
+    }
+
+    if (previewBtn) {
+      previewBtn.addEventListener('click', () => showPlaylistPreview(playlist.id));
+    }
+
+    playlistList.appendChild(playlistItem);
+  });
+}
+
+/**
+ * Play a playlist
+ * @param {string} playlistId - ID of playlist to play
+ */
+async function playPlaylist(playlistId) {
+  try {
+    console.log(`Starting playlist: ${playlistId}`);
+    // TODO: Call backend API to start playlist
+    // await apiPost('/api/playlists/' + playlistId + '/play');
+    
+    // Update current playlist display
+    const currentPlaylistName = document.getElementById('currentPlaylistName');
+    if (currentPlaylistName) {
+      currentPlaylistName.textContent = playlistId;
+    }
+  } catch (error) {
+    console.error('Failed to play playlist:', error);
+  }
+}
+
+/**
+ * Show playlist preview
+ * @param {string} playlistId - ID of playlist to preview
+ */
+async function showPlaylistPreview(playlistId) {
+  try {
+    console.log(`Previewing playlist: ${playlistId}`);
+    
+    // Switch to preview tab
+    switchDisplayTab('preview');
+    
+    // Load actual playlist data from API
+    const playlist = await apiGet(`/api/playlists/${playlistId}`);
+    
+    if (playlist && playlist.images) {
+      renderPreviewImages(playlist.images);
+    } else {
+      // Fallback to mock data
+      const mockImages = ['image1.bmp', 'image2.bmp', 'image3.bmp', 'image4.bmp'];
+      renderPreviewImages(mockImages);
+    }
+  } catch (error) {
+    console.error('Failed to load playlist preview:', error);
+    // Fallback to mock data
+    const mockImages = ['image1.bmp', 'image2.bmp', 'image3.bmp', 'image4.bmp'];
+    renderPreviewImages(mockImages);
+  }
+}
+
+/**
+ * Render preview images
+ * @param {Array} images - Array of image filenames
+ */
+function renderPreviewImages(images) {
+  const previewImages = document.getElementById('previewImages');
+  const previewPlaceholder = document.querySelector('.preview-placeholder');
+  
+  if (!previewImages) return;
+
+  // Hide placeholder, show images
+  if (previewPlaceholder) previewPlaceholder.style.display = 'none';
+  
+  previewImages.innerHTML = '';
+  previewImages.style.display = 'grid';
+
+  images.forEach((image, index) => {
+    const imageDiv = document.createElement('div');
+    imageDiv.className = 'preview-image';
+    imageDiv.innerHTML = `
+      <img src="/static_image?path=pic/${image}" alt="${image}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAzMEMyNS41MjI5IDMwIDMwIDI1LjUyMjkgMzAgMjBDMzAgMTQuNDc3MSAyNS41MjI5IDEwIDIwIDEwQzE0LjQ3NzEgMTAgMTAgMTQuNDc3MSAxMCAyMEMxMCAyNS41MjI5IDE0LjQ3NzEgMzAgMjAgMzBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0xNC41IDE0LjVMMjUuNSAyNS41IiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik0yNS41IDE0LjVMMTQuNSAyNS41IiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo='">
+      <div class="image-index">${index + 1}</div>
+    `;
+
+    // Add click handler to start playlist at this index
+    imageDiv.addEventListener('click', () => {
+      console.log(`Starting playlist at index ${index}`);
+      // TODO: Implement start at index functionality
+    });
+
+    previewImages.appendChild(imageDiv);
+  });
+}
+
+/**
+ * Setup playlist event handlers
+ */
+function setupPlaylistEventHandlers() {
+  // Load playlists on page load
+  loadPlaylists();
+
+  // Stop playlist button
+  const stopBtn = document.getElementById('stopPlaylist');
+  if (stopBtn) {
+    stopBtn.addEventListener('click', async () => {
+      try {
+        console.log('Stopping current playlist');
+        // TODO: Call backend API to stop playlist
+        // await apiPost('/api/playlists/stop');
+        
+        // Clear current playlist display
+        const currentPlaylistName = document.getElementById('currentPlaylistName');
+        if (currentPlaylistName) {
+          currentPlaylistName.textContent = 'None';
+        }
+      } catch (error) {
+        console.error('Failed to stop playlist:', error);
+      }
+    });
+  }
+
+  // Clear preview button (if exists)
+  const clearPreviewBtn = document.getElementById('clearPreview');
+  if (clearPreviewBtn) {
+    clearPreviewBtn.addEventListener('click', () => {
+      const previewImages = document.getElementById('previewImages');
+      const previewPlaceholder = document.querySelector('.preview-placeholder');
+      
+      if (previewImages) {
+        previewImages.innerHTML = '';
+        previewImages.style.display = 'none';
+      }
+      
+      if (previewPlaceholder) {
+        previewPlaceholder.style.display = 'flex';
+      }
+    });
+  }
+
+  console.log('Playlist event handlers setup complete');
+
+}
+
+/**
+ * Get current active tab
+ * @returns {string} - Active tab name
+ */
+export function getActiveTab() {
+  const activeTabBtn = document.querySelector('.tab-btn.active');
+  return activeTabBtn?.dataset.tab || 'thumbs';
+}
+
+/**
+ * Check if playlists tab is currently active
+ * @returns {boolean}
+ */
+export function isPlaylistsTabActive() {
+  return getActiveTab() === 'playlists';
+}

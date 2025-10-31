@@ -398,6 +398,66 @@ def register_routes(app):
             logger.error(f"Queue status failed: {e}")
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/api/playlists', methods=['GET'])
+    def list_playlists():
+        """List available playlists from playlists/ directory"""
+        try:
+            from pathlib import Path
+            import json
+            
+            playlists_dir = Path.cwd() / 'config' / 'playlists'
+            if not playlists_dir.exists():
+                return jsonify({'playlists': []})
+            
+            playlists = []
+            for playlist_file in playlists_dir.glob('*.json'):
+                try:
+                    with open(playlist_file, 'r') as f:
+                        playlist_data = json.load(f)
+                        playlist_data['id'] = playlist_file.stem  # Use filename without extension as ID
+                        playlists.append(playlist_data)
+                except (json.JSONDecodeError, IOError) as e:
+                    logger.warning(f"Failed to load playlist {playlist_file}: {e}")
+                    continue
+            
+            # Sort playlists by name for consistent ordering
+            playlists.sort(key=lambda x: x.get('name', ''))
+            
+            return jsonify({'playlists': playlists})
+            
+        except Exception as e:
+            logger.error(f"List playlists failed: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/playlists/<playlist_id>', methods=['GET'])
+    def get_playlist(playlist_id):
+        """Get details for a specific playlist"""
+        try:
+            from pathlib import Path
+            import json
+            
+            # Secure the filename
+            safe_playlist_id = secure_filename(playlist_id)
+            if not safe_playlist_id or safe_playlist_id != playlist_id:
+                return jsonify({'error': 'Invalid playlist ID'}), 400
+            
+            playlist_file = Path.cwd() / 'config' / 'playlists' / f'{playlist_id}.json'
+            if not playlist_file.exists():
+                return jsonify({'error': 'Playlist not found'}), 404
+            
+            with open(playlist_file, 'r') as f:
+                playlist_data = json.load(f)
+                playlist_data['id'] = playlist_id
+            
+            return jsonify(playlist_data)
+            
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load playlist {playlist_id}: {e}")
+            return jsonify({'error': 'Failed to load playlist'}), 500
+        except Exception as e:
+            logger.error(f"Get playlist failed: {e}")
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/ngrok-info', methods=['GET'])
     def get_ngrok_info():
         """Get ngrok tunnel information for OAuth redirects"""

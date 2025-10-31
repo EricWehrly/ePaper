@@ -9,6 +9,7 @@ import { refreshImages, refresh, scheduleNextRefresh } from './js/ui.js';
 import { setupEventHandlers, startCountdownTimer } from './js/events.js';
 import { setupDragDrop } from './js/dragdrop.js';
 import { updatePageTitle, updateAppHeading } from './js/app_config.js';
+import { initializePlaylists } from './js/playlists.js';
 
 /**
  * Set favicon with emoji using JavaScript for better readability
@@ -45,4 +46,7 @@ window.addEventListener('load', () => {
   
   // Setup drag-and-drop functionality
   setupDragDrop();
+  
+  // Initialize playlist functionality
+  initializePlaylists();
 });

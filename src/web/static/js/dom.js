@@ -35,7 +35,22 @@ const SELECTORS = {
   ORIENTATION_SELECT: '#orientationSelect',
   
   // Status displays
-  COUNTDOWN: '#nextImageCountdown'
+  COUNTDOWN: '#nextImageCountdown',
+  
+  // Playlist elements
+  THUMBS_TAB_BTN: '#thumbsTabBtn',
+  PLAYLISTS_TAB_BTN: '#playlistsTabBtn',
+  THUMBS_TAB: '#thumbsTab',
+  PLAYLISTS_TAB: '#playlistsTab',
+  PLAYLIST_LIST_VIEW: '#playlistListView',
+  PLAYLIST_EDITOR_VIEW: '#playlistEditorView',
+  BACK_TO_LIST_BTN: '#backToListBtn',
+  NEW_PLAYLIST_BTN: '#newPlaylistBtn',
+  PLAYLIST_NAME_INPUT: '#playlistNameInput',
+  PLAYLIST_EDITOR_TITLE: '#playlistEditorTitle',
+  SAVE_PLAYLIST_BTN: '#savePlaylistBtn',
+  PLAYLIST_ITEMS: '#playlistItems',
+  PLAYLIST_DROP_ZONE: '#playlistDropZone'
 };
 
 /**
