@@ -1,18 +1,12 @@
-FROM python:3.11-slim
+# Use Python 3.11 full image (not slim) to get python3-dev and build tools
+# needed for compiling RPi.GPIO and spidev native extensions for GPIO access
+FROM python:3.11
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    libopencv-dev \
-    python3-opencv \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libglib2.0-0 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Note: Standard python:3.11 image already includes all image processing libraries
+# (libjpeg-dev, zlib1g-dev, libfreetype-dev, liblcms2-dev, libopenjp2-7-dev)
+# and build tools (gcc, python3-dev) so no additional packages needed!
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

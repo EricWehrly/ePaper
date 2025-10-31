@@ -16,6 +16,12 @@ google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
 requests==2.31.0
 
+# Hardware GPIO libraries (for e-Paper display)
+RPi.GPIO==0.7.1
+spidev==3.6
+gpiozero==1.6.2
+pigpio==1.78
+
 # Additional utilities
 python-dotenv==1.0.0
 qrcode[pil]==7.4.2
