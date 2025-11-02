@@ -1,6 +1,6 @@
 {
-  "mode": "carousel",
-  "autoplay": true,
+  "mode": "image",
+  "autoplay": false,
   "interval_sec": 30,
   "orientation": "portrait",
   "ngrok_redirect": {

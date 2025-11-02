@@ -10,7 +10,7 @@ Raspberry Pi (ePaper) → Chisel Client → Internet → AWS (Chisel Server) →
 
 ### Components Created
 
-- **VPC with public subnet** - Isolated network for the inlets server
+- **VPC with public subnet** - Isolated network for the Chisel server
 - **EC2 instance** - Runs the Chisel server with nginx reverse proxy
 - **Elastic IP** - Stable public IP address
 - **Route 53 DNS record** - Points your domain to the server

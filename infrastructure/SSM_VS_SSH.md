@@ -12,7 +12,7 @@ This infrastructure uses AWS Systems Manager (SSM) Session Manager for secure se
 
 ### Security Groups
 - ✅ **HTTP/HTTPS (80/443)** - Public access for the web service
-- ✅ **Inlets control (8123)** - Public access with token authentication
+- ✅ **Chisel control (8080)** - Public access with authentication
 - ✅ **SSH (port 22)** - Optional, restricted by `allowed_ssh_cidrs` if `key_name` is provided
 
 ### Instance Configuration
@@ -35,8 +35,8 @@ This infrastructure uses AWS Systems Manager (SSM) Session Manager for secure se
 # Connect to the instance
 aws ssm start-session --target INSTANCE_ID --region us-east-1
 
-# Get instance ID from Terraform output
-aws ssm start-session --target $(terraform output -raw inlets_server_public_ip) --region us-east-1
+# Get instance ID from Terraform output  
+aws ssm start-session --target $(terraform output -raw chisel_server_instance_id) --region us-east-1
 ```
 
 ### Port Forwarding
@@ -61,7 +61,7 @@ Add comprehensive session logging:
 ```terraform
 resource "aws_iam_role_policy" "ssm_s3_logging" {
   name = "SSMSessionLogging"
-  role = aws_iam_role.inlets_server.id
+  role = aws_iam_role.chisel_server.id
 
   policy = jsonencode({
     Version = "2012-10-17"
