@@ -50,6 +50,15 @@ services:
     environment:
       - NGROK_AUTHTOKEN_FILE=/etc/ngrok.yml
     
+  # Chisel tunnel client - replaces inlets (works with existing AWS infrastructure)
+  chisel-client:
+    extends:
+      file: ./infrastructure/chisel-client.yml
+      service: chisel-client
+    container_name: epaper-chisel-client
+    depends_on:
+      - epaper-display
+        
   # Optional: Add a development container with hot reload
   epaper-dev:
     build: .

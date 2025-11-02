@@ -1,0 +1,15 @@
+services:
+  chisel-client:
+    image: jpillora/chisel:latest
+    restart: unless-stopped
+    command: 
+      - client
+      - --auth
+      - Wis0hlJ4eL6lVwYZ3ftR5zkXCwrqTpzlICBdShfv8rJolKJU3St7xwN7brKu6IQc
+      - http://epaper.whirlwind.family:8080
+      - R:5000:epaper-display:5000
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
