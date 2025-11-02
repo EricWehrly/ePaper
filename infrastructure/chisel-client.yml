@@ -1,0 +1,14 @@
+services:
+  chisel-client:
+    image: jpillora/chisel:latest
+    restart: unless-stopped
+    command: |
+      client
+      --fingerprint ${CHISEL_FINGERPRINT:-}
+      https://epaper.whirlwind.family:443
+      R:80:epaper-display:80
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
