@@ -1,5 +1,5 @@
 variable "domain_name" {
-  description = "The domain name for the inlets tunnel (e.g., epaper.yourdomain.com)"
+  description = "The domain name for the Chisel tunnel (e.g., epaper.yourdomain.com)"
   type        = string
 }
 
@@ -16,7 +16,7 @@ variable "aws_region" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type for the inlets server"
+  description = "EC2 instance type for the Chisel server"
   type        = string
   default     = "t3.micro"
 }
@@ -33,21 +33,21 @@ variable "allowed_ssh_cidrs" {
   default     = ["0.0.0.0/0"] # Restrict this to your IP ranges for security
 }
 
-variable "inlets_token" {
-  description = "Authentication token for inlets tunnel (leave empty to auto-generate)"
+variable "chisel_auth" {
+  description = "Authentication credential for Chisel tunnel (leave empty to auto-generate)"
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "generate_client_config" {
-  description = "Generate inlets client configuration files (.env.inlets) in the project root"
+  description = "Generate Chisel client configuration files (.env.chisel) in the project root"
   type        = bool
   default     = false
 }
 
-variable "inlets_upstream" {
-  description = "Upstream target for inlets client (where your ePaper app runs)"
+variable "chisel_upstream" {
+  description = "Upstream target for Chisel client (where your ePaper app runs)"
   type        = string
   default     = "http://epaper-display:80"
 }

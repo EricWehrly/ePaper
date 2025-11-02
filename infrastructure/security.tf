@@ -1,7 +1,7 @@
-# Security Group for Inlets Server
-resource "aws_security_group" "inlets_server" {
-  name        = "epaper-inlets-server-sg"
-  description = "Security group for inlets server"
+# Security Group for Chisel Server
+resource "aws_security_group" "chisel_server" {
+  name        = "epaper-chisel-server-sg"
+  description = "Security group for Chisel server"
   # Uses default VPC (no vpc_id needed)
 
   # HTTP
@@ -20,16 +20,12 @@ resource "aws_security_group" "inlets_server" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Inlets control plane (secure)
-  # TODO: Verify inlets server port configuration and nginx proxy setup
-  # Current setup: inlets server on 8123 (control), nginx proxies 443->8080 (data)
-  # Need to confirm: Does inlets expose data tunnel on 8080 or different port?
-  # Consider: Route inlets control through nginx WSS proxy on 443 for better security
+  # Chisel tunnel port
   ingress {
-    from_port   = 8123
-    to_port     = 8123
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # This will be secured with the token
+    cidr_blocks = ["0.0.0.0/0"] # This will be secured with authentication
   }
 
   # SSH
@@ -49,6 +45,6 @@ resource "aws_security_group" "inlets_server" {
   }
 
   tags = merge(var.tags, {
-    Name = "epaper-inlets-server-sg"
+    Name = "epaper-chisel-server-sg"
   })
 }

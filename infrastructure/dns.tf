@@ -1,12 +1,12 @@
-# Route 53 DNS record pointing to the inlets server
-resource "aws_route53_record" "inlets" {
+# Route 53 DNS record pointing to the Chisel server
+resource "aws_route53_record" "chisel" {
   zone_id = local.actual_zone.zone_id
   name    = var.domain_name
   type    = "A"
   ttl     = 300
-  records = [aws_eip.inlets_server.public_ip]
+  records = [aws_eip.chisel_server.public_ip]
 
-  depends_on = [aws_eip.inlets_server]
+  depends_on = [aws_eip.chisel_server]
 }
 # NOTE: SSL/TLS is provisioned on the EC2 instance using certbot (Let's Encrypt).
 # 
