@@ -1,0 +1,68 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Development and testing
+.pytest_cache/
+test/outputs/
+logs/
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git and version control
+.git/
+.gitignore
+
+# Docker files (no need to copy into image except entrypoint)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentation and project files
+README.md
+docs/
+*.md
+
+# Build artifacts and temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+
+# Application data directories (will be volume mounted)
+pic/
+pic-raw/
+
+# Configuration that should be mounted or generated
+config/google_photos_credentials.json
+config/ngrok_token.txt
+config/state.json
+config/queue.json
+config/*.key
+config/*.crt
+
+# Scripts and setup files not needed in container
+scripts/
+install.sh
+run.sh
+setup.py
+
+# Test resources and examples
+examples/
+test/resources/
+
+# Infrastructure files
+infrastructure/

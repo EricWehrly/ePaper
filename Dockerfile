@@ -11,8 +11,16 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy only the application source code
+COPY src/ src/
+COPY lib/ lib/
+COPY cli.py .
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh .
+RUN chmod +x docker-entrypoint.sh
+
+# Create directories that will be volume mounted or used at runtime
 RUN mkdir -p pic pic-raw logs config
 
 ENV FLASK_APP=src/main.py
@@ -20,8 +28,5 @@ ENV FLASK_ENV=development
 ENV PYTHONPATH=/app
 
 EXPOSE 5000
-
-COPY docker-entrypoint.sh .
-RUN chmod +x docker-entrypoint.sh
 
 CMD ["./docker-entrypoint.sh"]
