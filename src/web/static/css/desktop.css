@@ -1,0 +1,455 @@
+/* ePaper Desktop Styles - Desktop enhancements and layouts */
+
+/* ========== Desktop Layout Enhancements ========== */
+@media (min-width: 768px) {
+    /* Show desktop-only elements */
+    .desktop-only {
+        display: block;
+    }
+
+    /* Hide mobile-only elements */
+    .mobile-only {
+        display: none;
+    }
+
+    body {
+        padding: var(--spacing-xl);
+    }
+
+    /* Enhanced typography for desktop */
+    h1 {
+        font-size: var(--font-size-3xl);
+        margin: var(--spacing-xl) 0;
+    }
+
+    /* Desktop display section */
+    .display-section {
+        flex-direction: row;
+        gap: var(--spacing-xl);
+    }
+
+    .display-box {
+        height: var(--display-height);
+        min-width: 400px;
+    }
+
+    .tabbed-container {
+        height: var(--display-height);
+        min-width: 500px;
+    }
+}
+
+/* ========== Enhanced Hover States ========== */
+@media (min-width: 768px) {
+    /* Thumbnail hover effects */
+    .thumb-item:hover {
+        border-color: var(--accent-blue);
+        transform: translateY(-3px);
+        box-shadow: var(--box-shadow-hover);
+    }
+
+    .thumb-item:hover .thumb-overlay {
+        background: linear-gradient(transparent, rgba(30, 58, 138, 0.8));
+    }
+
+    /* Button hover enhancements */
+    .ctl-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--box-shadow);
+    }
+
+    .tab-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .display-tab-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Card hover effects */
+    .card:hover,
+    .playlist-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--box-shadow-hover);
+    }
+
+    /* Google Photos toggle hover */
+    .google-photos-toggle button:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--box-shadow);
+    }
+}
+
+/* ========== Desktop Grid Improvements ========== */
+@media (min-width: 768px) {
+    .thumb-list {
+        grid-template-columns: 1fr; /* Single column for thumbnails */
+        gap: var(--spacing-md);
+        padding: var(--spacing-lg);
+    }
+
+    /* Larger thumbnails on desktop */
+    .thumb-item {
+        aspect-ratio: 3/4;
+        border-radius: var(--card-radius);
+    }
+
+    /* Enhanced thumbnail info */
+    .thumb-overlay {
+        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: var(--font-size-sm);
+    }
+
+    /* Desktop playlist grid */
+    .preview-images {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: var(--spacing-md);
+    }
+}
+
+/* ========== Desktop Controls Enhancement ========== */
+@media (min-width: 768px) {
+    .controls-box {
+        padding: var(--spacing-lg);
+    }
+
+    .controls {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: var(--spacing-lg);
+    }
+
+    .control-group {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--spacing-md);
+    }
+
+    /* Enhanced button styling */
+    .ctl-btn {
+        padding: var(--spacing-sm) var(--spacing-lg);
+        font-size: var(--font-size-base);
+        min-width: 100px;
+        justify-content: center;
+    }
+
+    /* Form control improvements */
+    input[type="number"], 
+    input[type="text"], 
+    select {
+        min-width: 120px;
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+}
+
+/* ========== Desktop Tab Enhancements ========== */
+@media (min-width: 768px) {
+    .tab-nav {
+        padding: 0 var(--spacing-sm);
+    }
+
+    .tab-btn {
+        padding: var(--spacing-md) var(--spacing-lg);
+        font-size: var(--font-size-base);
+        min-width: 120px;
+        border-radius: var(--small-radius) var(--small-radius) 0 0;
+        margin-right: var(--spacing-xs);
+        position: relative;
+    }
+
+    .tab-btn:hover {
+        background: var(--panel-spot);
+        color: var(--accent-blue);
+    }
+
+    .tab-btn.active {
+        background: white;
+        border-bottom-color: white;
+        box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+        z-index: 1;
+    }
+
+    /* Display tab enhancements */
+    .display-tab-btn {
+        padding: var(--spacing-md) var(--spacing-xl);
+        font-size: var(--font-size-base);
+        font-weight: 500;
+    }
+
+    .display-tab-btn.active {
+        background: white;
+        box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+    }
+}
+
+/* ========== Desktop Context Menus (Future) ========== */
+@media (min-width: 768px) {
+    .context-menu {
+        position: absolute;
+        background: white;
+        border: 1px solid var(--muted);
+        border-radius: var(--small-radius);
+        box-shadow: var(--box-shadow-lg);
+        z-index: var(--z-dropdown);
+        min-width: 180px;
+        padding: var(--spacing-xs) 0;
+        display: none;
+    }
+
+    .context-menu.show {
+        display: block;
+    }
+
+    .context-menu-item {
+        display: block;
+        padding: var(--spacing-sm) var(--spacing-md);
+        color: var(--text);
+        text-decoration: none;
+        font-size: var(--font-size-sm);
+        transition: var(--transition-fast);
+    }
+
+    .context-menu-item:hover {
+        background: var(--accent-blue);
+        color: white;
+    }
+
+    .context-menu-item.disabled {
+        color: var(--muted);
+        cursor: not-allowed;
+    }
+
+    .context-menu-item.disabled:hover {
+        background: transparent;
+        color: var(--muted);
+    }
+
+    .context-menu-separator {
+        height: 1px;
+        background: var(--muted);
+        margin: var(--spacing-xs) 0;
+    }
+}
+
+/* ========== Desktop Drag & Drop (Future) ========== */
+@media (min-width: 768px) {
+    .drag-zone {
+        border: 2px dashed var(--muted);
+        border-radius: var(--card-radius);
+        padding: var(--spacing-xl);
+        text-align: center;
+        color: var(--muted);
+        font-size: var(--font-size-base);
+        transition: var(--transition-fast);
+        background: var(--panel-spot);
+        cursor: pointer;
+    }
+
+    .drag-zone:hover,
+    .drag-zone.drag-over {
+        border-color: var(--accent-blue);
+        color: var(--accent-blue);
+        background: rgba(30, 58, 138, 0.05);
+    }
+
+    .dragging .thumb-item {
+        opacity: 0.5;
+        transform: rotate(2deg) scale(0.95);
+        z-index: var(--z-dropdown);
+        pointer-events: none;
+    }
+
+    .drop-target {
+        background: rgba(30, 58, 138, 0.1);
+        border: 2px solid var(--accent-blue);
+    }
+}
+
+/* ========== Desktop Keyboard Navigation ========== */
+@media (min-width: 768px) {
+    /* Enhanced focus styles for keyboard navigation */
+    .thumb-item:focus {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+        border-color: var(--accent-blue);
+    }
+
+    .ctl-btn:focus,
+    .tab-btn:focus {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+    }
+
+    input:focus,
+    select:focus {
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2);
+    }
+
+    /* Keyboard shortcuts indicator */
+    .shortcut-hint {
+        font-size: var(--font-size-sm);
+        color: var(--muted);
+        margin-left: auto;
+        padding-left: var(--spacing-md);
+    }
+
+    .ctl-btn .shortcut-hint {
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+    }
+
+    .ctl-btn:hover .shortcut-hint {
+        opacity: 1;
+    }
+}
+
+/* ========== Large Desktop Enhancements ========== */
+@media (min-width: 1024px) {
+    .container {
+        max-width: 1200px;
+    }
+
+    body {
+        padding: var(--spacing-2xl);
+    }
+
+    /* Maintain single column with larger spacing for big screens */
+    .thumb-list {
+        grid-template-columns: 1fr; /* Keep single column */
+        gap: var(--spacing-xl);
+    }
+
+    /* Enhanced display area */
+    .display-box {
+        min-width: 500px;
+    }
+
+    .tabbed-container {
+        min-width: 600px;
+    }
+
+    /* More spacious controls */
+    .controls {
+        gap: var(--spacing-xl);
+    }
+
+    .control-group {
+        gap: var(--spacing-lg);
+    }
+}
+
+/* ========== Ultra-wide Desktop ========== */
+@media (min-width: 1440px) {
+    .container {
+        max-width: 1400px;
+    }
+
+    /* Three-column layout for ultra-wide screens */
+    .display-section {
+        gap: var(--spacing-2xl);
+    }
+
+    .thumb-list {
+        grid-template-columns: 1fr; /* Single column even on ultra-wide */
+    }
+
+    /* Side-by-side controls */
+    .controls-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-xl);
+    }
+
+    .controls {
+        justify-content: flex-start;
+    }
+}
+
+/* ========== Desktop Animation Enhancements ========== */
+@media (min-width: 768px) {
+    /* Smooth transitions for desktop */
+    .thumb-item,
+    .ctl-btn,
+    .tab-btn,
+    .card,
+    .playlist-item {
+        transition: all var(--transition-fast);
+    }
+
+    /* Staggered animations for thumbnail loading */
+    .thumb-item {
+        animation: fadeInUp 0.3s ease forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    .thumb-item:nth-child(1) { animation-delay: 0.1s; }
+    .thumb-item:nth-child(2) { animation-delay: 0.15s; }
+    .thumb-item:nth-child(3) { animation-delay: 0.2s; }
+    .thumb-item:nth-child(4) { animation-delay: 0.25s; }
+    .thumb-item:nth-child(5) { animation-delay: 0.3s; }
+    .thumb-item:nth-child(6) { animation-delay: 0.35s; }
+
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Smooth tab transitions */
+    .tab-pane {
+        transition: opacity var(--transition-medium);
+    }
+
+    .tab-pane.active {
+        animation: fadeIn var(--transition-medium) ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+}
+
+/* ========== Desktop Tooltips ========== */
+@media (min-width: 768px) {
+    [data-tooltip] {
+        position: relative;
+    }
+
+    [data-tooltip]:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: var(--small-radius);
+        font-size: var(--font-size-sm);
+        white-space: nowrap;
+        z-index: var(--z-dropdown);
+        pointer-events: none;
+        animation: tooltipFadeIn 0.2s ease;
+    }
+
+    [data-tooltip]:hover::before {
+        content: '';
+        position: absolute;
+        bottom: calc(100% + 2px);
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: rgba(0, 0, 0, 0.9);
+        z-index: var(--z-dropdown);
+        pointer-events: none;
+    }
+
+    @keyframes tooltipFadeIn {
+        from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+}

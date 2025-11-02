@@ -4,7 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ePaper</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <!-- Modular CSS Architecture -->
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/mobile.css">
+  <link rel="stylesheet" href="/static/css/desktop.css">
 </head>
 <body>
   <!-- Ngrok Redirect Banner -->
@@ -172,6 +176,9 @@
   <script src="/static/js/toast.js"></script>
   <script src="/static/js/google_photos_simple.js"></script>
   <script>
+    // Load display toggle functionality
+    import('/static/js/display_toggle.js');
+    
     // Minimal module loader with performance.now() cache-buster
     (function(){
       const s = document.createElement('script');
