@@ -1,0 +1,16 @@
+services:
+  integration-tests:
+    image: mcr.microsoft.com/playwright/python:v1.40.0-jammy
+    working_dir: /tests
+    volumes:
+      - ./test/integration:/tests
+      - ./scripts:/scripts
+    environment:
+      - TARGET_URL=http://epaper-epaper-display-1:5000
+    entrypoint: ["/scripts/run_playwright_tests.sh"]
+    networks:
+      - epaper_default
+
+networks:
+  epaper_default:
+    external: true
