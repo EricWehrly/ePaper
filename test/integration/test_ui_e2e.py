@@ -37,24 +37,24 @@ def test_dead_simple_tabs_present(page: Page, base_url: str):
     logger.info("Testing tab structure...")
     page.goto(base_url)
     
-    # Wait a moment for JS to execute
-    page.wait_for_timeout(2000)
+    # Wait for JS to execute
+    page.wait_for_timeout(1000)
     
     # Check for tab navigation
-    tabs_nav = page.locator(".tab-nav")
+    tabs_nav = page.locator(".tab-navigation")
     if tabs_nav.count() > 0:
         expect(tabs_nav).to_be_visible()
         logger.info("✓ Tab navigation found")
         
         # Check for individual tabs
         library_tab = page.locator("[data-tab='library']")
+        playlists_tab = page.locator("[data-tab='playlists']")
         photos_tab = page.locator("[data-tab='photos']")
-        controls_tab = page.locator("[data-tab='controls']")
         
         expect(library_tab).to_be_visible()
-        expect(photos_tab).to_be_visible() 
-        expect(controls_tab).to_be_visible()
-        logger.info("✓ All three tabs present")
+        expect(playlists_tab).to_be_visible()
+        expect(photos_tab).to_be_visible()
+        logger.info("✓ All three tabs present (Library/Playlists/Photos)")
     else:
         logger.warning("✗ Tab navigation not found - dead_simple_tabs.js may not have executed")
 
@@ -62,7 +62,7 @@ def test_display_section_present(page: Page, base_url: str):
     """Check if display section exists and is properly positioned"""
     logger.info("Testing display section...")
     page.goto(base_url)
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(1000)
     
     display_section = page.locator(".display-section")
     if display_section.count() > 0:
@@ -88,7 +88,7 @@ def test_tab_switching_behavior(page: Page, base_url: str):
     """Test if clicking tabs actually switches content"""
     logger.info("Testing tab switching...")
     page.goto(base_url)
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(1000)
     
     # Try clicking on Photos tab
     photos_tab = page.locator("[data-tab='photos']")
@@ -133,7 +133,7 @@ def test_google_photos_in_photos_tab(page: Page, base_url: str):
     """Check if Google Photos content appears in Photos tab"""
     logger.info("Testing Google Photos placement...")
     page.goto(base_url)
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(1000)
     
     # Click Photos tab
     photos_tab = page.locator("[data-tab='photos']")
@@ -235,7 +235,7 @@ def test_no_raw_html_css_visible(page: Page, base_url: str):
     """Check that no raw HTML/CSS code is visible as text on the page"""
     logger.info("Testing for visible raw HTML/CSS code...")
     page.goto(base_url)
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(1000)
     
     # Get the visible text content of the entire page
     body_text = page.locator("body").inner_text()

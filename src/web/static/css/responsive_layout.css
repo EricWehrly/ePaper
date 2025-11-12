@@ -1,0 +1,146 @@
+/* Responsive Layout - Desktop and Mobile arrangements */
+
+/* ===== COMMON STYLES ===== */
+
+.app-layout {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid #e5e7eb;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 12px 24px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-bottom: 2px solid transparent;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 16px;
+    color: #374151;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: #e5e7eb;
+}
+
+.tab-btn.active {
+    background: white;
+    color: #1e40af;
+    border-color: #1e40af;
+    border-bottom-color: white;
+    position: relative;
+    z-index: 1;
+}
+
+/* Tab Content */
+.tab-content-area {
+    position: relative;
+    min-height: 400px;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+    min-height: 400px;
+}
+
+/* Ensure tab content children are visible */
+.tab-pane .thumbs,
+.tab-pane .thumb-list,
+.tab-pane .playlists-container,
+.tab-pane .google-photos-simple {
+    display: block;
+    width: 100%;
+}
+
+/* Thumbnail grid layout */
+.thumb-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    padding: 10px 0;
+}
+
+/* Section styling */
+/* .section-display-preview, */
+.section-tabbed-content,
+.section-controls {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+/* Ensure controls box inside section also has proper styling */
+.section-controls .controls {
+    background: white;
+}
+
+/* ===== MOBILE LAYOUT (default - vertical stack) ===== */
+
+.app-layout {
+    display: flex;
+    flex-direction: column;
+}
+
+.section-display-preview {
+    order: 1;
+}
+
+.section-tabbed-content {
+    order: 2;
+}
+
+.section-controls {
+    order: 3;
+}
+
+/* ===== DESKTOP LAYOUT (>= 768px) ===== */
+
+@media (min-width: 768px) {
+    .app-layout {
+        display: grid;
+        grid-template-columns: 500px 1fr;
+        grid-template-rows: 1fr auto;
+        gap: 20px;
+        grid-template-areas:
+            "display tabbed"
+            "controls controls";
+    }
+    
+    .section-display-preview {
+        grid-area: display;
+        margin-bottom: 0;
+    }
+    
+    .section-tabbed-content {
+        grid-area: tabbed;
+        margin-bottom: 0;
+    }
+    
+    .section-controls {
+        grid-area: controls;
+        margin-bottom: 0;
+    }
+}
+
+/* ===== LARGE DESKTOP (>= 1200px) ===== */
+
+@media (min-width: 1200px) {
+    .app-layout {
+        grid-template-columns: 600px 1fr;
+    }
+}

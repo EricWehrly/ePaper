@@ -67,6 +67,13 @@ export async function refreshImages() {
     const images = await apiGet(API_CONFIG.ENDPOINTS.IMAGES);
     const list = getElement('THUMBS_LIST');
     
+    if (!list) {
+      console.error('❌ Failed to find #thumbList element - thumbnails cannot be rendered');
+      return;
+    }
+    
+    console.log('✓ Found #thumbList element, rendering thumbnails...');
+    
     // Only show converted images for now
     const all = images.converted_images || [];
     updateState({ convertedImages: all });
@@ -169,8 +176,10 @@ export async function refreshImages() {
         list.insertBefore(thumb, list.firstChild);
       }
     });
+    
+    console.log(`✓ Rendered ${all.length} thumbnails to #thumbList`);
   } catch (e) {
-    console.error(e);
+    console.error('❌ Error in refreshImages:', e);
   }
 }
 

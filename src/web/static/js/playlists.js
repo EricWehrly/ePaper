@@ -14,13 +14,13 @@ let currentPreviewPlaylistId = null;
 export function initializePlaylists() {
   console.log('Initializing playlists module');
   
-  // Setup tab switching between Thumbs and Playlists
-  setupTabSwitching();
+  // Note: Tab switching is now handled by tab_switcher.js
+  // We no longer need setupTabSwitching() here
   
-  // Setup display tab functionality
+  // Setup display area tabs
   setupDisplayTabs();
   
-  // Setup playlist event handlers and load playlists
+  // Setup event handlers
   setupPlaylistEventHandlers();
   
   console.log('Playlists module initialized');
@@ -28,47 +28,26 @@ export function initializePlaylists() {
 
 /**
  * Setup tab switching between Thumbs and Playlists
+ * NOTE: Tab switching is now handled by tab_switcher.js
+ * This function is kept for backwards compatibility but does nothing
  */
 function setupTabSwitching() {
-  const thumbsTabBtn = getElement('THUMBS_TAB_BTN');
-  const playlistsTabBtn = getElement('PLAYLISTS_TAB_BTN');
-  const thumbsTab = getElement('THUMBS_TAB');
-  const playlistsTab = getElement('PLAYLISTS_TAB');
-
-  if (!thumbsTabBtn || !playlistsTabBtn || !thumbsTab || !playlistsTab) {
-    console.warn('Tab elements not found - playlist tabs not initialized');
-    return;
-  }
-
-  // Thumbs tab button click
-  thumbsTabBtn.addEventListener('click', () => {
-    switchTab('thumbs');
-  });
-
-  // Playlists tab button click
-  playlistsTabBtn.addEventListener('click', () => {
-    switchTab('playlists');
-  });
+  // Tab switching is now handled by tab_switcher.js
+  console.log('Tab switching handled by tab_switcher.js');
 }
 
 /**
  * Switch to the specified tab
  * @param {string} tabName - Name of tab to switch to ('thumbs' or 'playlists')
+ * NOTE: This is now handled by tab_switcher.js
  */
 function switchTab(tabName) {
-  // Update button states
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
-  // Update tab content visibility
-  document.querySelectorAll('.tab-pane').forEach(pane => {
-    pane.classList.remove('active');
-  });
-  document.getElementById(`${tabName}Tab`).classList.add('active');
-
-  console.log(`Switched to ${tabName} tab`);
+  // Tab switching is now handled by tab_switcher.js
+  // Trigger click on the appropriate tab button to use the centralized handler
+  const tabBtn = document.querySelector(`[data-tab="${tabName}"]`);
+  if (tabBtn) {
+    tabBtn.click();
+  }
 }
 
 /**

@@ -7,8 +7,7 @@
   <!-- Modular CSS Architecture -->
   <link rel="stylesheet" href="/static/css/common.css">
   <link rel="stylesheet" href="/static/css/components.css">
-  <link rel="stylesheet" href="/static/css/mobile.css">
-  <link rel="stylesheet" href="/static/css/desktop.css">
+  <link rel="stylesheet" href="/static/css/responsive_layout.css">
 </head>
 <body>
   <!-- Ngrok Redirect Banner -->
@@ -35,54 +34,56 @@
   <div class="container">
     <h1>ePaper</h1>
     <div class="panel">
-      <!-- Display section with preview and thumbnails -->
-      <div class="display-section">
-        <div class="display-box" id="displayBox">
-          <!-- Display area tabs -->
-          <div class="display-tab-nav">
-            <button class="display-tab-btn active" data-tab="display" id="displayTabBtn">Display</button>
-            <button class="display-tab-btn" data-tab="preview" id="previewTabBtn">Preview</button>
-          </div>
-          
-          <!-- Display tab content -->
-          <div class="display-tab-content">
-            <!-- Current display tab -->
-            <div class="display-tab-pane active" id="displayTabPane">
-              <div class="placeholder" id="placeholder">No image currently displayed</div>
-              <img id="currentImage" src="" alt="Current display" style="display:none;"/>
-              <div class="preview-overlay" id="previewOverlay" style="display:none;">
-                <div class="spinner" id="spinner"></div>
-              </div>
-              <div class="preview-status" id="previewStatus" aria-live="polite"></div>
+      <div class="app-layout">
+        <!-- Display/Preview section (left on desktop, top on mobile) -->
+        <section class="section-display-preview" data-section="display-preview">
+          <div class="display-box" id="displayBox">
+            <!-- Display area tabs -->
+            <div class="display-tab-nav">
+              <button class="display-tab-btn active" data-tab="display" id="displayTabBtn">Display</button>
+              <button class="display-tab-btn" data-tab="preview" id="previewTabBtn">Preview</button>
             </div>
             
-            <!-- Preview tab -->
-            <div class="display-tab-pane" id="previewTabPane">
-              <div class="playlist-preview" id="playlistPreview">
-                <div class="preview-placeholder">Select a playlist to see preview</div>
-                <div class="preview-images" id="previewImages"></div>
+            <!-- Display tab content -->
+            <div class="display-tab-content">
+              <!-- Current display tab -->
+              <div class="display-tab-pane active" id="displayTabPane">
+                <div class="placeholder" id="placeholder">No image currently displayed</div>
+                <img id="currentImage" src="" alt="Current display" style="display:none;"/>
+                <div class="preview-overlay" id="previewOverlay" style="display:none;">
+                  <div class="spinner" id="spinner"></div>
+                </div>
+                <div class="preview-status" id="previewStatus" aria-live="polite"></div>
+              </div>
+              
+              <!-- Preview tab -->
+              <div class="display-tab-pane" id="previewTabPane">
+                <div class="playlist-preview" id="playlistPreview">
+                  <div class="preview-placeholder">Select a playlist to see preview</div>
+                  <div class="preview-images" id="previewImages"></div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="tabbed-container" id="tabbedContainer">
-          <!-- Tab navigation -->
-          <div class="tab-nav">
-            <button class="tab-btn active" data-tab="thumbs" id="thumbsTabBtn">Thumbs</button>
-            <button class="tab-btn" data-tab="playlists" id="playlistsTabBtn">Playlists</button>
-          </div>
-          
-          <!-- Tab content -->
-          <div class="tab-content">
-            <!-- Thumbs tab -->
-            <div class="tab-pane active" id="thumbsTab">
+        </section>
+        
+        <!-- Tabbed content (right on desktop, middle on mobile) -->
+        <section class="section-tabbed-content" data-section="tabbed">
+          <nav class="tab-navigation">
+            <button class="tab-btn active" data-tab="library">📚 Library</button>
+            <button class="tab-btn" data-tab="playlists">📋 Playlists</button>
+            <button class="tab-btn" data-tab="photos">📸 Photos</button>
+          </nav>
+          <div class="tab-content-area">
+            <!-- Library tab -->
+            <div class="tab-pane active" data-pane="library">
               <div class="thumbs" id="thumbs">
                 <div class="thumb-list" id="thumbList"></div>
               </div>
             </div>
             
             <!-- Playlists tab -->
-            <div class="tab-pane" id="playlistsTab">
+            <div class="tab-pane" data-pane="playlists">
               <div class="playlists-container">
                 <div class="playlist-header">
                   <h3>Playlists</h3>
@@ -96,79 +97,69 @@
                 </div>
               </div>
             </div>
+            
+            <!-- Google Photos tab -->
+            <div class="tab-pane" data-pane="photos">
+              <div class="google-photos-simple" id="googlePhotosSection">
+                <!-- Authentication and Picker Controls on Same Line -->
+                <div class="controls-row" id="controlsRow">
+                  <div class="picker-section" id="pickerSection" style="display:none;">
+                    <button id="openPickerBtn" class="ctl-btn control primary">Open photo picker</button>
+                  </div>
+                  
+                  <div class="auth-section" id="authSection">
+                    <span id="authStatusText">Checking authentication...</span>
+                    <button id="loginBtn" class="ctl-btn control" style="display:none;">Sign In with Google</button>
+                    <button id="logoutBtn" class="ctl-btn control danger" style="display:none;">Sign Out</button>
+                  </div>
+                </div>
+                
+                <!-- Status Text Underneath -->
+                <div class="picker-status" id="pickerStatus" style="display:none;">
+                  <span id="pickerStatusText">Ready to select photos</span>
+                </div>
+                  
+                <div class="picker-results" id="pickerResults" style="display:none;">
+                  <!-- Results from picker will be displayed here -->
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      
-      <!-- Controls section - separate box below display -->
-      <div class="controls-box">
-        <div class="controls primary-controls display-controls" id="primaryControls">
-          <div class="mode-group control-group">
-            <label>Mode:</label>
-            <button class="ctl-btn control display-mode" data-mode="image" id="modeImageBtn" aria-pressed="true">Image</button>
-            <button class="ctl-btn control display-mode" data-mode="carousel" id="modeCarouselBtn" aria-pressed="false">Carousel</button>
-          </div>
-          <div class="nav-group control-group">
-            <button class="ctl-btn control display-control" id="prevBtn" title="Previous image">&lt;</button>
-            <button class="ctl-btn control display-control" id="nextBtn" title="Next image">&gt;</button>
-            <button class="ctl-btn control display-setting" id="autoplayToggle" data-playing="false">Autoplay: Off</button>
-          </div>
-        </div>
-        <div class="controls secondary-controls display-controls" id="secondaryControls">
-          <div class="orient-group control-group">
-            <label for="orientationSelect">Orientation:</label>
-            <select id="orientationSelect" class="control display-setting">
-              <option value="portrait" selected>Portrait</option>
-              <option value="landscape">Landscape</option>
-            </select>
-            <button id="clearBtn" class="ctl-btn control display-control danger" title="Clear ePaper display">Clear</button>
-          </div>
-          <div class="countdown-group control-group">
-            <label>Next in:</label>
-            <span id="nextImageCountdown" class="countdown-display">--</span>
-          </div>
-          <div class="interval-group control-group">
-            <label for="intervalInput">Interval (s):</label>
-            <input id="intervalInput" class="control display-setting" type="number" min="5" step="1" value="30" />
-          </div>
-        </div>
-      </div>
-      
-      <!-- Google Photos section -->
-      <!-- Google Photos Section with Integrated Toggle Header -->
-      <div class="google-photos-container">
-        <!-- Toggle button as section header -->
-        <div class="google-photos-toggle">
-          <button id="toggleGooglePhotos" class="ctl-btn control">
-            <img src="/static/icons/google_photos.png" alt="" class="button-icon">
-            <span class="toggle-icon">^</span> Google Photos
-          </button>
-        </div>
+        </section>
         
-        <!-- Expandable content -->
-        <div class="google-photos-simple" id="googlePhotosSection" style="display:none;">
-          <!-- Authentication and Picker Controls on Same Line -->
-          <div class="controls-row" id="controlsRow">
-            <div class="picker-section" id="pickerSection" style="display:none;">
-              <button id="openPickerBtn" class="ctl-btn control primary">Open photo picker</button>
+        <!-- Controls section (bottom on both desktop and mobile) -->
+        <section class="section-controls" data-section="controls">
+          <div class="controls primary-controls display-controls" id="primaryControls">
+            <div class="mode-group control-group">
+              <label>Mode:</label>
+              <button class="ctl-btn control display-mode" data-mode="image" id="modeImageBtn" aria-pressed="true">Image</button>
+              <button class="ctl-btn control display-mode" data-mode="carousel" id="modeCarouselBtn" aria-pressed="false">Carousel</button>
             </div>
-            
-            <div class="auth-section" id="authSection">
-              <span id="authStatusText">Checking authentication...</span>
-              <button id="loginBtn" class="ctl-btn control" style="display:none;">Sign In with Google</button>
-              <button id="logoutBtn" class="ctl-btn control danger" style="display:none;">Sign Out</button>
+            <div class="nav-group control-group">
+              <button class="ctl-btn control display-control" id="prevBtn" title="Previous image">&lt;</button>
+              <button class="ctl-btn control display-control" id="nextBtn" title="Next image">&gt;</button>
+              <button class="ctl-btn control display-setting" id="autoplayToggle" data-playing="false">Autoplay: Off</button>
             </div>
           </div>
-          
-          <!-- Status Text Underneath -->
-          <div class="picker-status" id="pickerStatus" style="display:none;">
-            <span id="pickerStatusText">Ready to select photos</span>
+          <div class="controls secondary-controls display-controls" id="secondaryControls">
+            <div class="orient-group control-group">
+              <label for="orientationSelect">Orientation:</label>
+              <select id="orientationSelect" class="control display-setting">
+                <option value="portrait" selected>Portrait</option>
+                <option value="landscape">Landscape</option>
+              </select>
+              <button id="clearBtn" class="ctl-btn control display-control danger" title="Clear ePaper display">Clear</button>
+            </div>
+            <div class="countdown-group control-group">
+              <label>Next in:</label>
+              <span id="nextImageCountdown" class="countdown-display">--</span>
+            </div>
+            <div class="interval-group control-group">
+              <label for="intervalInput">Interval (s):</label>
+              <input id="intervalInput" class="control display-setting" type="number" min="5" step="1" value="30" />
+            </div>
           </div>
-            
-          <div class="picker-results" id="pickerResults" style="display:none;">
-            <!-- Results from picker will be displayed here -->
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>
@@ -176,16 +167,16 @@
   <script src="/static/js/toast.js"></script>
   <script src="/static/js/google_photos_simple.js"></script>
   <script>
-    // Load display toggle functionality
-    import('/static/js/display_toggle.js');
-    
-    // Minimal module loader with performance.now() cache-buster
-    (function(){
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.src = '/static/app.js?v=' + Math.floor(performance.now());
-      document.head.appendChild(s);
-    })();
+    // Add global error handler
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+    });
   </script>
+  
+  <!-- Simple tab switcher - just handles tab clicks -->
+  <script src="/static/js/tab_switcher.js"></script>
+  
+  <!-- Load main application module to initialize display, thumbnails, events, etc. -->
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>
