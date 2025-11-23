@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta       <div class="app-layout">
+            
+        <!-- Tabbed content (right on desktop, middle on mobile) -->
+        <section class="section-tabbed-content" data-section="tabbed" id="tabbed-content">
+          <nav class="tab-navigation"><!-- Display/Preview section (left on desktop, top on mobile) -->
+        <section class="section-display-preview" data-section="display-preview" id="display-preview">
+          <div class="display-box" id="displayBox">="viewport" content="width=device-width,initial-scale=1" />
   <title>ePaper</title>
   <!-- Modular CSS Architecture -->
   <link rel="stylesheet" href="/static/css/common.css">
@@ -31,6 +37,25 @@
     </div>
   </div>
   
+  <!-- Mobile Navigation (sticky header with hamburger) -->
+  <div class="mobile-nav-header">
+    <h1 class="mobile-heading">ePaper</h1>
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu" aria-expanded="false">
+      <span class="hamburger-icon"></span>
+    </button>
+  </div>
+  
+  <nav class="mobile-nav-menu" id="mobileNavMenu">
+    <a href="#display" class="mobile-nav-link">📺 Display</a>
+    <a href="#preview" class="mobile-nav-link">👁️ Preview</a>
+    <a href="#library" class="mobile-nav-link">📚 Library</a>
+    <a href="#playlists" class="mobile-nav-link">📋 Playlists</a>
+    <a href="#photos" class="mobile-nav-link">📸 Google Photos</a>
+    <a href="#controls" class="mobile-nav-link">🎮 Controls</a>
+  </nav>
+  
+    </div>
+  
   <!-- Mobile Navigation -->
   <div class="mobile-nav">
     <h1>ePaper</h1>
@@ -56,7 +81,7 @@
     <div class="panel">
       <div class="app-layout">
         <!-- Display/Preview section (left on desktop, top on mobile) -->
-        <section class="section-display-preview" data-section="display-preview" id="display">
+        <section class="section-display-preview" id="display" data-section="display-preview">
           <div class="display-box" id="displayBox">
             <!-- Display area tabs -->
             <div class="display-tab-nav">
@@ -78,7 +103,6 @@
               
               <!-- Preview tab -->
               <div class="display-tab-pane" id="previewTabPane">
-                <span id="preview"></span>
                 <div class="playlist-preview" id="playlistPreview">
                   <div class="preview-placeholder">Select a playlist to see preview</div>
                   <div class="preview-images" id="previewImages"></div>
@@ -89,7 +113,7 @@
         </section>
         
         <!-- Tabbed content (right on desktop, middle on mobile) -->
-        <section class="section-tabbed-content" data-section="tabbed">
+        <section class="section-tabbed-content" id="library" data-section="tabbed">
           <nav class="tab-navigation">
             <button class="tab-btn active" data-tab="library">📚 Library</button>
             <button class="tab-btn" data-tab="playlists">📋 Playlists</button>
@@ -104,7 +128,7 @@
             </div>
             
             <!-- Playlists tab -->
-            <div class="tab-pane" data-pane="playlists" id="playlists">
+            <div class="tab-pane" id="playlists" data-pane="playlists">
               <div class="playlists-container">
                 <div class="playlist-header">
                   <h3>Playlists</h3>
@@ -120,7 +144,7 @@
             </div>
             
             <!-- Google Photos tab -->
-            <div class="tab-pane" data-pane="photos" id="photos">
+            <div class="tab-pane" id="photos" data-pane="photos">
               <div class="google-photos-simple" id="googlePhotosSection">
                 <!-- Authentication and Picker Controls on Same Line -->
                 <div class="controls-row" id="controlsRow">
@@ -149,7 +173,7 @@
         </section>
         
         <!-- Controls section (bottom on both desktop and mobile) -->
-        <section class="section-controls" data-section="controls" id="controls">
+        <section class="section-controls" id="controls" data-section="controls">
           <div class="controls primary-controls display-controls" id="primaryControls">
             <div class="mode-group control-group">
               <label>Mode:</label>

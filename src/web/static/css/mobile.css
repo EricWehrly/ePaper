@@ -340,6 +340,43 @@
     }
 }
 
+/* ========== Main Tab Navigation Mobile Styles ========== */
+@media (max-width: 768px) {
+    .main-content-wrapper {
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+
+    .main-tab-content {
+        padding: var(--spacing-md);
+    }
+
+    /* Mobile navigation improvements */
+    .mobile-nav {
+        width: min(320px, calc(100vw - 40px));
+    }
+
+    /* Ensure mobile menu doesn't interfere with display toggle */
+    .mobile-display-toggle {
+        z-index: 1;
+    }
+
+    /* Touch-friendly mobile nav links */
+    .mobile-nav-link {
+        min-height: 60px;
+        font-size: var(--font-size-base);
+    }
+
+    .mobile-nav-link .tab-icon {
+        font-size: var(--font-size-xl);
+    }
+
+    /* Hide desktop tab navigation on mobile */
+    .main-tab-nav {
+        display: none;
+    }
+}
+
 /* ========== Performance Optimizations for Mobile ========== */
 @media (max-width: 768px) {
     /* Reduce animations on mobile for better performance */

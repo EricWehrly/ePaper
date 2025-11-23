@@ -118,7 +118,7 @@ h1 {
     font-weight: 600;
     font-size: var(--font-size-3xl);
     color: var(--text);
-    margin: var(--spacing-lg) 0;
+    margin: var(--spacing-xs) 0;
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 

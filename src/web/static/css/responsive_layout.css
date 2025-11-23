@@ -2,6 +2,12 @@
 
 /* ===== COMMON STYLES ===== */
 
+/* Reduce title spacing */
+.container h1 {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
 .app-layout {
     width: 100%;
     max-width: 1400px;
@@ -13,15 +19,15 @@
 .tab-navigation {
     display: flex;
     gap: 4px;
-    border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 20px;
+    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .tab-btn {
     padding: 12px 24px;
     background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-bottom: 2px solid transparent;
+    border: 1px solid #e5e7eb;
+    border-bottom: none;
     border-radius: 8px 8px 0 0;
     cursor: pointer;
     font-size: 16px;
@@ -36,8 +42,8 @@
 .tab-btn.active {
     background: white;
     color: #1e40af;
-    border-color: #1e40af;
-    border-bottom-color: white;
+    border-color: #e5e7eb;
+    border-bottom: none;
     position: relative;
     z-index: 1;
 }
@@ -46,6 +52,8 @@
 .tab-content-area {
     position: relative;
     min-height: 400px;
+    padding: 20px;
+    background: white;
 }
 
 .tab-pane {
@@ -71,17 +79,51 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 10px;
-    padding: 10px 0;
+    padding: 0;
+    margin: 0;
+}
+
+/* Thumbnail matting with alternating backgrounds */
+.thumb {
+    max-width: 96%;
+    padding: 8px;
+    border-radius: 4px;
+    transition: transform 0.2s;
+}
+
+.thumb:nth-child(odd) {
+    background: #f9fafb;
+}
+
+.thumb:nth-child(even) {
+    background: #f3f4f6;
+}
+
+.thumb:hover {
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.thumb img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
 }
 
 /* Section styling */
 /* .section-display-preview, */
-.section-tabbed-content,
+.section-tabbed-content {
+    border: 1px solid #e5e7eb;
+    border-radius: 0 8px 8px 8px;
+    padding: 0;
+}
+
 .section-controls {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 20px;
+    padding: 8px;
 }
 
 /* Ensure controls box inside section also has proper styling */
@@ -89,11 +131,84 @@
     background: white;
 }
 
+/* Add section heading for mobile (hidden by default on desktop) */
+.section-controls::before {
+    content: 'Controls';
+    display: none;
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+/* ===== MOBILE NAVIGATION ===== */
+
+.mobile-nav {
+    display: none; /* Hidden by default, shown on mobile */
+}
+
+.mobile-nav h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.hamburger-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.hamburger-btn span {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background: #374151;
+    border-radius: 2px;
+    transition: all 0.3s;
+}
+
+.mobile-menu {
+    display: none;
+    position: fixed;
+    top: 50px;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 999;
+}
+
+.mobile-menu.open {
+    display: block;
+}
+
+.mobile-menu nav {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-menu a {
+    padding: 15px 20px;
+    text-decoration: none;
+    color: #374151;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.2s;
+}
+
+.mobile-menu a:hover {
+    background: #f9fafb;
+}
+
 /* ===== MOBILE LAYOUT (default - vertical stack) ===== */
 
 .app-layout {
     display: flex;
     flex-direction: column;
+    gap: 20px;
 }
 
 .section-display-preview {
@@ -108,14 +223,112 @@
     order: 3;
 }
 
+/* Mobile-specific styles (< 768px) */
+@media (max-width: 767px) {
+    /* Show mobile navigation */
+    .mobile-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 10px 20px;
+        z-index: 1000;
+        height: auto;
+        min-height: 50px;
+    }
+    
+    /* Hide desktop title */
+    .container > h1 {
+        display: none;
+    }
+    
+    /* Hide tab navigation on mobile - use sections instead */
+    .tab-navigation {
+        display: none;
+    }
+    
+    /* Fix tabbed content area on mobile - break out of container */
+    .section-tabbed-content {
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+    }
+    
+    .section-tabbed-content .tab-content-area {
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Show all tab panes as separate sections on mobile */
+    .tab-pane {
+        display: block;
+        position: static;
+        margin-bottom: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 20px;
+        min-height: auto;
+    }
+    
+    /* Add section headings for mobile */
+    .tab-pane::before {
+        content: attr(data-pane);
+        display: block;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-transform: capitalize;
+    }
+    
+    /* Limit library height and add scroll on mobile */
+    .tab-pane[data-pane="library"] {
+        max-height: 300px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        /* Smooth scrolling */
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure library content stays within bounds */
+    .tab-pane[data-pane="library"] .thumbs,
+    .tab-pane[data-pane="library"] .thumb-list {
+        overflow: visible;
+    }
+    
+    /* Show controls section heading on mobile */
+    .section-controls::before {
+        display: block;
+    }
+    
+    /* Add padding to controls section on mobile */
+    .section-controls {
+        padding: 20px;
+    }
+}
+
 /* ===== DESKTOP LAYOUT (>= 768px) ===== */
 
 @media (min-width: 768px) {
+    /* Hide mobile nav on desktop */
+    .mobile-nav {
+        display: none !important;
+    }
+    
     .app-layout {
         display: grid;
         grid-template-columns: 500px 1fr;
         grid-template-rows: 1fr auto;
-        gap: 20px;
+        /* gap: 20px; */
         grid-template-areas:
             "display tabbed"
             "controls controls";
@@ -134,6 +347,11 @@
     .section-controls {
         grid-area: controls;
         margin-bottom: 0;
+    }
+    
+    /* Add padding to odd rows in controls on desktop */
+    .section-controls .controls:nth-child(odd) {
+        padding-bottom: 6px;
     }
 }
 

@@ -3,6 +3,11 @@
   "autoplay": false,
   "interval_sec": 30,
   "orientation": "portrait",
+  "playlist": {
+    "current_id": null,
+    "current_index": 0,
+    "loop": true
+  },
   "ngrok_redirect": {
     "enabled": true,
     "countdown_seconds": 3

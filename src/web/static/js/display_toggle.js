@@ -2,71 +2,68 @@
 
 export class DisplayToggle {
     constructor() {
-        this.displayContainer = null;
+        this.displayContent = null;
         this.toggleButton = null;
         this.isCollapsed = false;
         this.isMobile = window.innerWidth < 768;
         
-        this.init();
-        this.setupEventListeners();
+        // Wait for main tabs to initialize first
+        setTimeout(() => this.init(), 200);
     }
 
     init() {
-        // Find the display box (not the entire section)
-        const displayBox = document.querySelector('.display-box');
-        if (!displayBox) return;
-
-        // Wrap only the display-box in collapsible container
-        if (!displayBox.parentNode.classList.contains('display-container')) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'display-container';
-            displayBox.parentNode.insertBefore(wrapper, displayBox);
-            wrapper.appendChild(displayBox);
-            this.displayContainer = wrapper;
-        } else {
-            this.displayContainer = displayBox.parentNode;
+        // Find the display content area (what we actually hide/show)
+        this.displayContent = document.querySelector('.display-content, #displayContent');
+        if (!this.displayContent) {
+            console.warn('Display content not found, retrying...');
+            setTimeout(() => this.init(), 100);
+            return;
         }
 
-        // Create toggle button
-        this.createToggleButton();
-        
-        // Set initial state based on screen size
+        // Find the existing toggle button from template
+        this.toggleButton = document.querySelector('#displayToggleBtn, .display-toggle-btn');
+        if (!this.toggleButton) {
+            console.warn('Display toggle button not found, creating fallback');
+            this.createToggleButton();
+        }
+
+        this.setupEventListeners();
         this.updateToggleState();
+        
+        // Restore saved state
+        const savedState = localStorage.getItem('epaper_display_collapsed');
+        if (savedState === 'true') {
+            this.collapse(false); // Don't animate on initial load
+        }
+        
+        console.log('Display toggle initialized:', {
+            displayContent: !!this.displayContent,
+            toggleButton: !!this.toggleButton,
+            isCollapsed: this.isCollapsed
+        });
     }
 
     createToggleButton() {
-        // Desktop toggle button (top-right corner)
-        const desktopToggle = document.createElement('button');
-        desktopToggle.className = 'display-toggle desktop-only';
-        desktopToggle.innerHTML = '−'; // Minimize symbol
-        desktopToggle.setAttribute('aria-label', 'Toggle display area');
-        desktopToggle.setAttribute('data-tooltip', 'Hide display area');
-        
-        // Mobile toggle button (full width)
-        const mobileToggle = document.createElement('button');
-        mobileToggle.className = 'mobile-display-toggle mobile-only';
-        mobileToggle.innerHTML = '<span class="toggle-text">Show/Hide Display</span>';
-        mobileToggle.setAttribute('aria-label', 'Toggle display area');
-
-        // Add desktop button to display container
-        this.displayContainer.appendChild(desktopToggle);
-        
-        // Add mobile button before the display section (not just the display container)
-        const displaySection = document.querySelector('.display-section');
-        if (displaySection) {
-            displaySection.parentNode.insertBefore(mobileToggle, displaySection);
+        const displayHeader = document.querySelector('.display-header, .display-section');
+        if (displayHeader) {
+            const button = document.createElement('button');
+            button.id = 'displayToggleBtn';
+            button.className = 'display-toggle-btn';
+            button.setAttribute('aria-label', 'Toggle display visibility');
+            button.innerHTML = `
+                <span class="toggle-icon">👁️</span>
+                <span class="toggle-text">Hide</span>
+            `;
+            displayHeader.appendChild(button);
+            this.toggleButton = button;
         }
-
-        // Store references
-        this.desktopToggle = desktopToggle;
-        this.mobileToggle = mobileToggle;
-
-        // Add click handlers
-        desktopToggle.addEventListener('click', () => this.toggle());
-        mobileToggle.addEventListener('click', () => this.toggle());
     }
 
     setupEventListeners() {
+        // Main toggle button (from template)
+        if (this.toggleButton) {
+            this.toggleButton.addEventListener('click', () => this.toggle());
+        }
         // Handle window resize
         let resizeTimeout;
         window.addEventListener('resize', () => {
@@ -106,29 +103,28 @@ export class DisplayToggle {
     }
 
     collapse(animate = true) {
-        if (!this.displayContainer) return;
+        if (!this.displayContent) return;
 
         this.isCollapsed = true;
         
         if (animate) {
-            this.displayContainer.style.transition = 'var(--transition-medium)';
+            this.displayContent.style.transition = 'height var(--transition-medium), opacity var(--transition-medium)';
         } else {
-            this.displayContainer.style.transition = 'none';
+            this.displayContent.style.transition = 'none';
         }
 
-        if (this.isMobile) {
-            this.displayContainer.classList.add('mobile-collapsed');
-        } else {
-            this.displayContainer.classList.add('collapsed');
-        }
+        // Hide the display content
+        this.displayContent.style.height = '0';
+        this.displayContent.style.opacity = '0';
+        this.displayContent.style.overflow = 'hidden';
 
-        this.updateToggleButtons();
+        this.updateToggleButton();
         
         // Reset transition after animation
         if (animate) {
             setTimeout(() => {
-                if (this.displayContainer) {
-                    this.displayContainer.style.transition = '';
+                if (this.displayContent) {
+                    this.displayContent.style.transition = '';
                 }
             }, 300);
         }
@@ -140,24 +136,28 @@ export class DisplayToggle {
     }
 
     expand(animate = true) {
-        if (!this.displayContainer) return;
+        if (!this.displayContent) return;
 
         this.isCollapsed = false;
         
         if (animate) {
-            this.displayContainer.style.transition = 'var(--transition-medium)';
+            this.displayContent.style.transition = 'height var(--transition-medium), opacity var(--transition-medium)';
         } else {
-            this.displayContainer.style.transition = 'none';
+            this.displayContent.style.transition = 'none';
         }
 
-        this.displayContainer.classList.remove('collapsed', 'mobile-collapsed');
-        this.updateToggleButtons();
+        // Show the display content
+        this.displayContent.style.height = 'auto';
+        this.displayContent.style.opacity = '1';
+        this.displayContent.style.overflow = 'visible';
+
+        this.updateToggleButton();
 
         // Reset transition after animation
         if (animate) {
             setTimeout(() => {
-                if (this.displayContainer) {
-                    this.displayContainer.style.transition = '';
+                if (this.displayContent) {
+                    this.displayContent.style.transition = '';
                 }
             }, 300);
         }
@@ -168,38 +168,28 @@ export class DisplayToggle {
         }));
     }
 
-    updateToggleButtons() {
-        if (this.desktopToggle) {
-            this.desktopToggle.innerHTML = this.isCollapsed ? '+' : '−';
-            this.desktopToggle.setAttribute('data-tooltip', 
+    updateToggleButton() {
+        if (this.toggleButton) {
+            const toggleText = this.toggleButton.querySelector('.toggle-text');
+            const toggleIcon = this.toggleButton.querySelector('.toggle-icon');
+            
+            if (toggleText) {
+                toggleText.textContent = this.isCollapsed ? 'Show' : 'Hide';
+            }
+            
+            if (toggleIcon) {
+                toggleIcon.textContent = this.isCollapsed ? '👁️' : '👁️‍🗨️';
+            }
+            
+            this.toggleButton.setAttribute('aria-label', 
                 this.isCollapsed ? 'Show display area' : 'Hide display area'
             );
-        }
-
-        if (this.mobileToggle) {
-            const toggleText = this.mobileToggle.querySelector('.toggle-text');
-            if (toggleText) {
-                toggleText.textContent = this.isCollapsed ? 'Show Display' : 'Hide Display';
-            }
         }
     }
 
     updateToggleState() {
-        // Update mobile state
-        const wasMobile = this.isMobile;
         this.isMobile = window.innerWidth < 768;
-
-        // If switching between mobile/desktop, update classes
-        if (wasMobile !== this.isMobile && this.isCollapsed) {
-            this.displayContainer.classList.remove('collapsed', 'mobile-collapsed');
-            if (this.isMobile) {
-                this.displayContainer.classList.add('mobile-collapsed');
-            } else {
-                this.displayContainer.classList.add('collapsed');
-            }
-        }
-
-        this.updateToggleButtons();
+        this.updateToggleButton();
     }
 
     // Public API

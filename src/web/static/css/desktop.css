@@ -4,12 +4,20 @@
 @media (min-width: 768px) {
     /* Show desktop-only elements */
     .desktop-only {
-        display: block;
+        display: block !important;
     }
 
     /* Hide mobile-only elements */
     .mobile-only {
-        display: none;
+        display: none !important;
+    }
+
+    /* Force desktop navigation visibility */
+    .main-tab-nav.desktop-only {
+        display: flex !important;
+        visibility: visible !important;
+        background: red !important; /* DEBUG: Make it obvious */
+        min-height: 60px !important;
     }
 
     body {
@@ -366,6 +374,73 @@
     }
 }
 
+/* ========== Main Tab Navigation Desktop Enhancements ========== */
+@media (min-width: 768px) {
+    .main-content-wrapper {
+        flex-direction: column;
+        gap: var(--spacing-xl);
+    }
+
+    /* Horizontal tab navigation for desktop */
+    .main-tab-nav.desktop-only {
+        display: flex !important;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        padding: var(--spacing-md) 0;
+        gap: var(--spacing-sm);
+        border-bottom: 2px solid var(--muted);
+        margin-bottom: var(--spacing-lg);
+        background: var(--panel-bg);
+    }
+
+    .main-tab-btn {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md) var(--spacing-lg);
+        border: 1px solid var(--muted);
+        border-bottom: 2px solid transparent;
+        border-radius: var(--small-radius) var(--small-radius) 0 0;
+        background: var(--panel-spot);
+        color: var(--text);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        font-size: var(--font-size-base);
+        font-weight: 500;
+        min-width: auto;
+        min-height: auto;
+    }
+
+    .main-tab-btn:hover {
+        background: var(--panel-bg);
+        border-color: var(--accent-blue);
+        transform: translateY(-1px);
+        box-shadow: var(--box-shadow);
+    }
+
+    .main-tab-btn.active {
+        background: white;
+        border-bottom-color: white;
+        color: var(--accent-blue);
+        box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+        z-index: 1;
+    }
+
+    /* Enhanced tab content for desktop */
+    .main-tab-content {
+        padding: var(--spacing-xl);
+    }
+
+    /* Hide mobile elements */
+    .mobile-header,
+    .mobile-nav,
+    .mobile-nav-overlay {
+        display: none !important;
+    }
+}
+
 /* ========== Desktop Animation Enhancements ========== */
 @media (min-width: 768px) {
     /* Smooth transitions for desktop */
@@ -373,7 +448,8 @@
     .ctl-btn,
     .tab-btn,
     .card,
-    .playlist-item {
+    .playlist-item,
+    .main-tab-btn {
         transition: all var(--transition-fast);
     }
 
