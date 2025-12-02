@@ -24,6 +24,9 @@ function setFavicon(emoji = '📷') {
   document.head.appendChild(favicon);
 }
 
+// Expose refreshImages to global scope for Google Photos integration
+window.refreshImages = refreshImages;
+
 /**
  * Initialize the application when DOM is loaded
  */
@@ -32,10 +35,12 @@ window.addEventListener('load', () => {
   setFavicon();
   updatePageTitle();
   updateAppHeading();
-  // Load images list once at startup (images rarely change)
-  refreshImages().then(() => {
-    // Then start regular status polling
-    refresh().then(() => scheduleNextRefresh());
+  
+  // PRIORITY 1: Load display preview first (highest priority)
+  refresh().then(() => {
+    scheduleNextRefresh();
+    // PRIORITY 2: Load thumbnails after display is ready
+    refreshImages();
   });
   
   // Start countdown update timer (every second when carousel is active)

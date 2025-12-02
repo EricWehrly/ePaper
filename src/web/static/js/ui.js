@@ -10,12 +10,13 @@ import { getElement, setText, setAttribute, setVisible, toggleClass } from './do
 
 /**
  * Refresh status from server and update UI
+ * PRIORITY: Display preview has highest loading priority
  */
 export async function refresh() {
   try {
     const status = await apiGet(API_CONFIG.ENDPOINTS.STATUS);
     
-    // Update current image display
+    // HIGHEST PRIORITY: Load display preview image immediately
     const current = status.current_image || null;
     const imgEl = getElement('CURRENT_IMAGE');
     if (current && imgEl) {
@@ -56,11 +57,48 @@ export async function refresh() {
   } catch (e) {
     console.error(e);
   }
-  return Promise.resolve(); // Ensure it returns a promise
+  return Promise.resolve();
+}
+
+/**
+ * Load thumbnails sequentially from top to bottom for better perceived performance
+ */
+function loadThumbnailsSequentially(container) {
+  const images = Array.from(container.querySelectorAll('img[data-src]:not(.placeholder-thumb img)'));
+  
+  let loadIndex = 0;
+  
+  function loadNext() {
+    if (loadIndex >= images.length) return;
+    
+    const img = images[loadIndex];
+    const src = img.getAttribute('data-src');
+    
+    if (src) {
+      img.src = src;
+      img.removeAttribute('data-src');
+      
+      img.onload = () => {
+        loadIndex++;
+        loadNext();
+      };
+      
+      img.onerror = () => {
+        loadIndex++;
+        loadNext();
+      };
+    } else {
+      loadIndex++;
+      loadNext();
+    }
+  }
+  
+  loadNext();
 }
 
 /**
  * Refresh images list from server
+ * PRIORITY: Thumbnails load sequentially from top to bottom after display preview
  */
 export async function refreshImages() {
   try {
@@ -145,14 +183,14 @@ export async function refreshImages() {
       
       const thumb = el('div', { class: 'thumb' });
       const img = el('img', {
-        src: imageSrc,
+        'data-src': imageSrc,
         alt: item.name,
-        title: item.name
+        title: item.name,
+        loading: 'lazy'
       });
       thumb.appendChild(img);
       thumb.addEventListener('click', async () => {
         if (thumb.classList.contains('disabled')) return;
-        // Disable all thumbs while updating
         document.querySelectorAll('.thumb').forEach(t => t.classList.add('disabled'));
         
         try {
@@ -160,7 +198,6 @@ export async function refreshImages() {
         } catch (e) {
           console.error(e);
         } finally {
-          // Re-enable thumbs
           document.querySelectorAll('.thumb').forEach(t => t.classList.remove('disabled'));
         }
       });
@@ -168,14 +205,15 @@ export async function refreshImages() {
       // Insert in chronological order (newest first, after placeholders)
       const placeholders = list.querySelectorAll('.placeholder-thumb');
       if (placeholders.length > 0) {
-        // Insert after the last placeholder
         const lastPlaceholder = placeholders[placeholders.length - 1];
         list.insertBefore(thumb, lastPlaceholder.nextSibling);
       } else {
-        // No placeholders, add to the beginning (newest first)
         list.insertBefore(thumb, list.firstChild);
       }
     });
+    
+    // Load thumbnail images sequentially from top to bottom (newest first)
+    loadThumbnailsSequentially(list);
     
     console.log(`✓ Rendered ${all.length} thumbnails to #thumbList`);
   } catch (e) {
