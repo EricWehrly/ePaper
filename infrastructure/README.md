@@ -5,8 +5,23 @@ This Terraform configuration sets up an AWS-based Chisel tunnel to replace ngrok
 ## Architecture
 
 ```
-Raspberry Pi (ePaper) → Chisel Client → Internet → AWS (Chisel Server) → Your Domain
+Raspberry Pi (ePaper) → Chisel Client (Docker) → Internet → AWS EC2 (Chisel Server) → Your Domain
+                         ↓                                        ↑
+                   chisel-client.yml                    Terraform creates this
+                   (in this project)                    (epaper.whirlwind.family)
 ```
+
+**Key Point**: The **Chisel Client** runs in your Docker container (configured in `chisel-client.yml`). The **Chisel Server** runs on AWS EC2 (created by this Terraform). The client connects TO the server using the domain name configured in `chisel-client.yml`.
+
+**Current Configuration**: 
+- **Server domain**: `epaper.whirlwind.family:8080` (configured in `chisel-client.yml`)
+- **Server location**: AWS EC2 instance (created by this Terraform)
+- **Client location**: Docker container on Raspberry Pi
+
+If the client can't connect, check:
+1. Is the AWS EC2 instance running? (`terraform output`)
+2. Does the domain resolve? (`ping epaper.whirlwind.family`)
+3. Is the Route 53 DNS record correct? (check AWS console)
 
 ### Components Created
 
@@ -123,10 +138,19 @@ sudo certbot certificates
 
 ### Common Issues
 
-1. **DNS not resolving**: Wait 5-10 minutes for DNS propagation
-2. **SSL certificate failed**: Check domain ownership and DNS settings  
-3. **Tunnel not connecting**: Check client logs with `docker logs chisel-client`
-4. **502 Bad Gateway**: Check if Chisel client is running on Raspberry Pi
+1. **"no such host" error in chisel-client logs**: 
+   - Error: `dial tcp: lookup epaper.whirlwind.family: no such host`
+   - **Cause**: The domain configured in `chisel-client.yml` cannot be resolved
+   - **Solutions**:
+     - Check if AWS EC2 is running: `terraform output`
+     - Verify DNS record exists: `aws route53 list-resource-record-sets --hosted-zone-id <your-zone-id>`
+     - Test DNS resolution: `ping epaper.whirlwind.family`
+     - If Terraform was destroyed, redeploy: `terraform apply`
+     
+2. **DNS not resolving**: Wait 5-10 minutes for DNS propagation after first deploy
+3. **SSL certificate failed**: Check domain ownership and DNS settings  
+4. **Tunnel not connecting**: Check client logs with `docker logs chisel-client`
+5. **502 Bad Gateway**: Check if Chisel client is running on Raspberry Pi
 
 ### Logs to Check
 
