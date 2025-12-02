@@ -56,15 +56,14 @@ export async function updatePageTitle() {
 }
 
 /**
- * Update the main heading (h1) with the app name
+ * Update all elements with data-app-name attribute
  */
 export async function updateAppHeading() {
   try {
     const appName = await getAppName();
-    const heading = document.querySelector('h1');
-    if (heading) {
-      heading.textContent = appName;
-    }
+    document.querySelectorAll('[data-app-name]').forEach(element => {
+      element.textContent = appName;
+    });
   } catch (error) {
     console.warn('Failed to update app heading:', error);
   }

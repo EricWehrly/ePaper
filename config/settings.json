@@ -1,4 +1,5 @@
 {
+  "app_name": "ePaper",
   "mode": "image",
   "autoplay": false,
   "interval_sec": 30,
