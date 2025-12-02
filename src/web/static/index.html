@@ -8,32 +8,13 @@
   <link rel="stylesheet" href="/static/css/common.css">
   <link rel="stylesheet" href="/static/css/components.css">
   <link rel="stylesheet" href="/static/css/responsive_layout.css">
+  <!-- Load config first to set app name -->
+  <script src="/static/js/config.js"></script>
 </head>
 <body>
-  <!-- Ngrok Redirect Banner -->
-  <div id="ngrokBanner" class="ngrok-banner" style="display: none;">
-    <div class="banner-content">
-      <div class="banner-message">
-        <strong>🔒 OAuth Authentication Required</strong><br>
-        Redirecting to secure HTTPS tunnel for Google Photos authentication...
-      </div>
-      <div class="banner-actions">
-        <div class="countdown-section">
-          <span class="countdown-text">Redirecting in: </span>
-          <span id="bannerCountdown" class="countdown-timer">7</span>
-          <span class="countdown-text">s</span>
-        </div>
-        <div class="banner-buttons">
-          <button id="redirectNowBtn" class="banner-btn primary">Redirect Now</button>
-          <button id="cancelRedirectBtn" class="banner-btn secondary">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  
   <!-- Mobile Navigation -->
   <div class="mobile-nav">
-    <h1>ePaper</h1>
+    <h1 data-app-name>ePaper</h1>
     <button class="hamburger-btn" aria-label="Menu">
       <span></span>
       <span></span>
@@ -52,7 +33,7 @@
   </div>
   
   <div class="container">
-    <h1>ePaper</h1>
+    <h1 data-app-name>ePaper</h1>
     <div class="panel">
       <div class="app-layout">
         <!-- Display/Preview section (left on desktop, top on mobile) -->
@@ -169,7 +150,7 @@
                 <option value="portrait" selected>Portrait</option>
                 <option value="landscape">Landscape</option>
               </select>
-              <button id="clearBtn" class="ctl-btn control display-control danger" title="Clear ePaper display">Clear</button>
+              <button id="clearBtn" class="ctl-btn control display-control danger" title="Clear display">Clear</button>
             </div>
             <div class="countdown-group control-group">
               <label>Next in:</label>
@@ -184,7 +165,6 @@
       </div>
     </div>
   </div>
-  <script src="/static/js/ngrok_banner.js"></script>
   <script src="/static/js/toast.js"></script>
   <script src="/static/js/google_photos_simple.js"></script>
   <script>

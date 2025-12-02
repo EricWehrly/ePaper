@@ -1,93 +1,73 @@
-/**
- * Simple Google Photos Picker Integration
- * Streamlined interface with just picker button and status updates
- */
-
 class SimpleGooglePhotos {
     constructor() {
         this.authenticated = false;
         this.currentSession = null;
         this.pollingInterval = null;
         
+        // TODO: Sync whitelist with backend configuration
+        this.whitelistedDomains = [
+            'epaper.whirlwind.family' // TODO: Wire in from terraform output
+        ];
+        
         this.init();
     }
 
     async init() {
-        console.log('SimpleGooglePhotos initializing...');
         this.setupEventListeners();
-        await this.checkNgrokRedirect();
-        await this.checkAuthStatus();
+        await this.checkDomainAndAuth();
     }
 
     setupEventListeners() {
-        // Toggle section
-        const toggleBtn = document.getElementById('toggleGooglePhotos');
-        toggleBtn?.addEventListener('click', () => this.toggleSection());
-
-        // Auth buttons
         const loginBtn = document.getElementById('loginBtn');
         loginBtn?.addEventListener('click', () => this.handleAuth());
 
         const logoutBtn = document.getElementById('logoutBtn');
         logoutBtn?.addEventListener('click', () => this.handleDisconnect());
 
-        // Picker button
         const openPickerBtn = document.getElementById('openPickerBtn');
         openPickerBtn?.addEventListener('click', () => this.openPhotoPicker());
     }
 
-    async checkNgrokRedirect() {
-        if (!window.location.hostname.includes('raspberrypi.local')) return;
+    isWhitelistedDomain() {
+        const hostname = window.location.hostname;
+        return this.whitelistedDomains.some(domain => {
+            if (domain === hostname) return true;
+            if (domain.startsWith('.') && hostname.endsWith(domain)) return true;
+            return false;
+        });
+    }
 
-        try {
-            const response = await fetch('/api/google-photos/ngrok-info');
-            const data = await response.json();
-            
-            if (data.ngrok_url && data.should_redirect && !data.authenticated) {
-                this.showNgrokBanner(data.ngrok_url);
-            }
-        } catch (error) {
-            console.log('Ngrok check failed (expected if not available):', error.message);
+    buildRedirectUrl(domain) {
+        const protocol = window.location.protocol;
+        const port = window.location.port ? `:${window.location.port}` : '';
+        return `${protocol}//${domain}${port}?tab=photos`;
+    }
+
+    async checkDomainAndAuth() {
+        if (!this.isWhitelistedDomain()) {
+            this.showDomainRedirect();
+        } else {
+            await this.checkAuthStatus();
         }
     }
 
-    showNgrokBanner(ngrokUrl) {
-        const banner = document.createElement('div');
-        banner.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-            background: #2563eb; color: white; padding: 12px; text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        `;
-        banner.innerHTML = `
-            <strong>📸 Google Photos Authentication Required:</strong>
-            <a href="${ngrokUrl}" style="color: #fbbf24; text-decoration: underline; margin: 0 8px;">
-                Use ${ngrokUrl} for Google Photos
-            </a>
-            <button onclick="this.parentElement.remove()" style="background: none; border: 1px solid white; color: white; padding: 4px 8px; margin-left: 8px; border-radius: 4px; cursor: pointer;">×</button>
-        `;
-        document.body.insertBefore(banner, document.body.firstChild);
-        document.body.style.paddingTop = '60px';
-    }
-
-    toggleSection() {
-        const section = document.getElementById('googlePhotosSection');
-        const container = section.closest('.google-photos-container');
-        const isVisible = section.style.display !== 'none';
+    showDomainRedirect() {
+        const authStatusText = document.getElementById('authStatusText');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const pickerSection = document.getElementById('pickerSection');
+        const pickerStatus = document.getElementById('pickerStatus');
         
-        section.style.display = isVisible ? 'none' : 'block';
+        const redirectDomain = this.whitelistedDomains[0];
+        const redirectUrl = this.buildRedirectUrl(redirectDomain);
         
-        // Update expanded class on container for styling
-        if (container) {
-            if (isVisible) {
-                container.classList.remove('google-photos-expanded');
-            } else {
-                container.classList.add('google-photos-expanded');
-            }
-        }
-        
-        if (!isVisible && !this.authenticated) {
-            this.checkAuthStatus();
-        }
+        authStatusText.textContent = 'Google Photos requires a whitelisted domain';
+        loginBtn.textContent = `Redirect to ${redirectDomain}`;
+        loginBtn.style.display = 'inline-block';
+        loginBtn.onclick = () => window.location.href = redirectUrl;
+        logoutBtn.style.display = 'none';
+        pickerSection.style.display = 'none';
+        pickerStatus.style.display = 'none';
     }
 
     async checkAuthStatus() {
@@ -99,7 +79,6 @@ class SimpleGooglePhotos {
             
             this.authenticated = data.authenticated;
             this.updateAuthUI(data);
-            
         } catch (error) {
             console.error('Failed to check auth status:', error);
             this.updateStatus('Failed to check authentication status', 'error');
@@ -112,32 +91,24 @@ class SimpleGooglePhotos {
         const logoutBtn = document.getElementById('logoutBtn');
         const pickerSection = document.getElementById('pickerSection');
         const pickerStatus = document.getElementById('pickerStatus');
-        const section = document.getElementById('googlePhotosSection');
-        const container = section?.closest('.google-photos-container');
 
         if (authData.authenticated) {
             authStatusText.textContent = `Signed in as ${authData.user?.email || 'Google user'}`;
             loginBtn.style.display = 'none';
+            loginBtn.onclick = null;
             logoutBtn.style.display = 'inline-block';
             pickerSection.style.display = 'block';
             pickerStatus.style.display = 'block';
             this.updateStatus('Ready to select photos');
-            
-            // Auto-expand section when user is logged in
-            if (section && container) {
-                section.style.display = 'block';
-                container.classList.add('google-photos-expanded');
-            }
         } else {
             authStatusText.textContent = 'Not signed in to Google Photos';
+            loginBtn.textContent = 'Sign In with Google';
             loginBtn.style.display = 'inline-block';
+            loginBtn.onclick = null;
             logoutBtn.style.display = 'none';
             pickerSection.style.display = 'none';
             pickerStatus.style.display = 'none';
             this.updateStatus('Sign in required');
-            
-            // Don't force-close section when not authenticated - let user toggle manually
-            // Only auto-expand if authenticated, but never auto-collapse
         }
     }
 
@@ -150,16 +121,11 @@ class SimpleGooglePhotos {
         }
         
         if (statusContainer) {
-            // Reset classes
             statusContainer.className = 'picker-status';
-            
-            // Add type-specific class
             if (type !== 'info') {
                 statusContainer.classList.add(type);
             }
         }
-        
-        console.log(`GooglePhotos Status [${type}]:`, message);
     }
 
     async handleAuth() {
@@ -239,54 +205,29 @@ class SimpleGooglePhotos {
         let selectionComplete = false;
         let startTime = Date.now();
         
-        // Monitor window closure but be patient about cancellation detection
         const checkClosed = setInterval(() => {
             if (pickerWindow.closed && !selectionComplete) {
                 clearInterval(checkClosed);
-                
                 const elapsedTime = Date.now() - startTime;
-                console.log(`Picker window closed after ${elapsedTime}ms, selectionComplete: ${selectionComplete}`);
+                const minTimeForSelection = 10000;
+                const waitTimeAfterClose = elapsedTime > minTimeForSelection ? 10000 : 15000;
                 
-                // Be much more patient - give plenty of time to detect selection
-                // Don't treat as cancelled unless window was open for meaningful time AND no selection detected
-                const minTimeForSelection = 10000; // 10 seconds minimum
-                const waitTimeAfterClose = 10000; // Wait 10 seconds after close to check for selection
-                
-                if (elapsedTime > minTimeForSelection) {
-                    // Window was open long enough, give time to detect selection
-                    setTimeout(() => {
-                        if (!selectionComplete && this.pollingInterval) {
-                            clearInterval(this.pollingInterval);
-                            this.pollingInterval = null;
-                            console.log('Treating window closure as cancellation after reasonable wait');
-                            this.updateStatus('Photo selection cancelled');
-                        }
-                    }, waitTimeAfterClose);
-                } else {
-                    // Window closed very quickly - likely autoclose, keep polling longer
-                    setTimeout(() => {
-                        if (!selectionComplete && this.pollingInterval) {
-                            clearInterval(this.pollingInterval);
-                            this.pollingInterval = null;
-                            console.log('Picker closed quickly but no selection detected - likely cancelled');
-                            this.updateStatus('Photo selection cancelled');
-                        }
-                    }, 15000); // Give 15 seconds for quick autoclose scenarios
-                }
+                setTimeout(() => {
+                    if (!selectionComplete && this.pollingInterval) {
+                        clearInterval(this.pollingInterval);
+                        this.pollingInterval = null;
+                        this.updateStatus('Photo selection cancelled');
+                    }
+                }, waitTimeAfterClose);
             }
-        }, 2000); // Check less frequently to avoid spam
+        }, 2000);
 
-        // Poll for session completion more aggressively
         this.pollingInterval = setInterval(async () => {
             try {
                 const response = await fetch('/api/google-photos/session-status');
                 const data = await response.json();
                 
-                console.log('Session status check:', data.session?.mediaItemsSet ? 'COMPLETE' : 'pending');
-                
                 if (data.session?.mediaItemsSet) {
-                    // Selection complete!
-                    console.log('Selection detected - marking complete');
                     selectionComplete = true;
                     clearInterval(this.pollingInterval);
                     clearInterval(checkClosed);
@@ -301,16 +242,14 @@ class SimpleGooglePhotos {
             } catch (error) {
                 console.error('Polling error:', error);
             }
-        }, 2000); // Poll every 2 seconds - reasonable balance of responsiveness and server load
+        }, 2000);
     }
 
     async handleSelectionComplete() {
         this.updateStatus('Photos selected! Processing...', 'processing');
         
         try {
-            // Get selected photos
             const response = await fetch('/api/google-photos/selected-photos');
-            
             if (!response.ok) {
                 throw new Error(`Failed to get selected photos: ${response.status}`);
             }
@@ -318,19 +257,13 @@ class SimpleGooglePhotos {
             const data = await response.json();
             const mediaItems = data.pickedMediaItems || data.mediaItems || [];
             
-            console.log('Selected photos response:', data);
-            console.log('Media items found:', mediaItems.length);
-            
             if (mediaItems.length === 0) {
                 this.updateStatus('No photos were selected');
                 return;
             }
             
             this.updateStatus(`Downloading ${mediaItems.length} photos...`, 'processing');
-            
-            // Auto-download selected photos
             await this.downloadSelectedPhotos(mediaItems);
-            
         } catch (error) {
             console.error('Selection processing failed:', error);
             this.updateStatus(`Processing error: ${error.message}`, 'error');
@@ -339,10 +272,8 @@ class SimpleGooglePhotos {
 
     async downloadSelectedPhotos(mediaItems) {
         try {
-            // Add placeholder thumbnails immediately
             this.addPlaceholderThumbnails(mediaItems);
             
-            // Call download endpoint
             const response = await fetch('/api/google-photos/download', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -361,20 +292,16 @@ class SimpleGooglePhotos {
                     'success'
                 );
                 
-                // Refresh main images grid
                 if (window.refreshImages) {
                     window.refreshImages();
                 }
                 
-                // Auto-hide after success
                 setTimeout(() => {
                     this.updateStatus('Ready to select more photos');
                 }, 3000);
-                
             } else {
                 this.updateStatus('No photos were downloaded', 'error');
             }
-            
         } catch (error) {
             console.error('Download failed:', error);
             this.updateStatus(`Download error: ${error.message}`, 'error');
@@ -404,9 +331,7 @@ class SimpleGooglePhotos {
     }
 }
 
-// Initialize when page loads
 let simpleGooglePhotos;
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing SimpleGooglePhotos...');
     simpleGooglePhotos = new SimpleGooglePhotos();
 });
