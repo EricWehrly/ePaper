@@ -1479,3 +1479,55 @@ select:focus {
         height: 400px;
     }
 }
+/* ========== Playlist Drop Zone ========== */
+.playlist-drop-zone {
+    border: 3px dashed var(--border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xxl);
+    margin: var(--spacing-lg) 0;
+    text-align: center;
+    background: var(--surface-secondary);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.playlist-drop-zone:hover {
+    border-color: var(--primary);
+    background: var(--surface);
+}
+
+.playlist-drop-zone.drag-over {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    transform: scale(1.02);
+    box-shadow: var(--box-shadow-lg);
+}
+
+.drop-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.drop-zone-icon {
+    font-size: 48px;
+    opacity: 0.6;
+}
+
+.drop-zone-text {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text);
+}
+
+.drop-zone-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.thumb.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+

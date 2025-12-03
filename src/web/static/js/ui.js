@@ -181,7 +181,7 @@ export async function refreshImages() {
         return;
       }
       
-      const thumb = el('div', { class: 'thumb' });
+      const thumb = el('div', { class: 'thumb', draggable: 'true' });
       const img = el('img', {
         'data-src': imageSrc,
         alt: item.name,
@@ -189,6 +189,17 @@ export async function refreshImages() {
         loading: 'lazy'
       });
       thumb.appendChild(img);
+      
+      thumb.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('application/x-epaper-images', JSON.stringify([item.name]));
+        thumb.classList.add('dragging');
+      });
+      
+      thumb.addEventListener('dragend', () => {
+        thumb.classList.remove('dragging');
+      });
+      
       thumb.addEventListener('click', async () => {
         if (thumb.classList.contains('disabled')) return;
         document.querySelectorAll('.thumb').forEach(t => t.classList.add('disabled'));

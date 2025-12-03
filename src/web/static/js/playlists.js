@@ -298,19 +298,101 @@ async function stopCurrentPlaylist() {
 }
 
 /**
+ * Setup drag and drop for playlist creation
+ */
+function setupPlaylistDragDrop() {
+  const dropZone = document.getElementById('playlistDropZone');
+  if (!dropZone) return;
+
+  let draggedImages = [];
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('drag-over');
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+  });
+
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+
+    const transferData = e.dataTransfer.getData('application/x-epaper-images');
+    if (transferData) {
+      try {
+        draggedImages = JSON.parse(transferData);
+        await createPlaylistFromImages(draggedImages);
+      } catch (error) {
+        console.error('Failed to parse dropped images:', error);
+      }
+    }
+  });
+
+  document.querySelectorAll('#thumbList .thumb img').forEach(img => {
+    img.parentElement.setAttribute('draggable', 'true');
+    
+    img.parentElement.addEventListener('dragstart', (e) => {
+      const imageSrc = img.getAttribute('src');
+      const imageName = img.getAttribute('alt') || img.getAttribute('title');
+      
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('application/x-epaper-images', JSON.stringify([imageName]));
+    });
+  });
+}
+
+/**
+ * Create playlist from dropped images
+ */
+async function createPlaylistFromImages(imageNames) {
+  if (!imageNames || imageNames.length === 0) {
+    alert('No images to add to playlist');
+    return;
+  }
+
+  const playlistName = prompt(`Create playlist with ${imageNames.length} images.\n\nEnter playlist name:`);
+  if (!playlistName || !playlistName.trim()) {
+    return;
+  }
+
+  try {
+    const response = await apiPost('/api/playlists', {
+      name: playlistName.trim(),
+      images: imageNames,
+      interval: 30,
+      orientation: 'portrait'
+    });
+
+    if (response.success) {
+      alert(`Playlist "${playlistName}" created successfully!`);
+      loadPlaylists();
+    } else {
+      throw new Error(response.error || 'Failed to create playlist');
+    }
+  } catch (error) {
+    console.error('Failed to create playlist:', error);
+    alert(`Failed to create playlist: ${error.message}`);
+  }
+}
+
+/**
  * Setup playlist event handlers
  */
 function setupPlaylistEventHandlers() {
-  // Load playlists on page load
   loadPlaylists();
+  setupPlaylistDragDrop();
 
-  // Stop playlist button
   const stopBtn = document.getElementById('stopPlaylist');
   if (stopBtn) {
     stopBtn.addEventListener('click', () => stopCurrentPlaylist());
   }
 
-  // Clear preview button (if exists)
   const clearPreviewBtn = document.getElementById('clearPreview');
   if (clearPreviewBtn) {
     clearPreviewBtn.addEventListener('click', () => {
@@ -329,7 +411,6 @@ function setupPlaylistEventHandlers() {
   }
 
   console.log('Playlist event handlers setup complete');
-
 }
 
 /**

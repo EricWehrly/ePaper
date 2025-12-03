@@ -497,6 +497,68 @@ def register_routes(app):
             logger.error(f"Play playlist failed: {e}")
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/playlists', methods=['POST'])
+    def create_playlist():
+        """Create a new playlist from dropped images"""
+        try:
+            from pathlib import Path
+            import json
+            from datetime import datetime
+            
+            data = request.get_json(force=True, silent=True) or {}
+            
+            name = data.get('name', '').strip()
+            images = data.get('images', [])
+            interval = safe_int(data.get('interval', 30), minimum=5) or 30
+            orientation = data.get('orientation', 'portrait')
+            
+            if not name:
+                return jsonify({'error': 'Playlist name is required'}), 400
+            
+            if not images or len(images) == 0:
+                return jsonify({'error': 'At least one image is required'}), 400
+            
+            # Generate safe ID from name
+            playlist_id = secure_filename(name.lower().replace(' ', '_'))
+            if not playlist_id:
+                return jsonify({'error': 'Invalid playlist name'}), 400
+            
+            # Check for existing playlist
+            playlists_dir = Path.cwd() / 'config' / 'playlists'
+            playlists_dir.mkdir(parents=True, exist_ok=True)
+            
+            playlist_file = playlists_dir / f'{playlist_id}.json'
+            if playlist_file.exists():
+                return jsonify({'error': f'Playlist "{name}" already exists'}), 409
+            
+            # Create playlist data
+            now = datetime.utcnow().isoformat() + 'Z'
+            playlist_data = {
+                'id': playlist_id,
+                'name': name,
+                'description': f'Created from drag-and-drop',
+                'images': images,
+                'interval': interval,
+                'orientation': orientation,
+                'created': now,
+                'modified': now
+            }
+            
+            # Save playlist
+            with open(playlist_file, 'w') as f:
+                json.dump(playlist_data, f, indent=2)
+            
+            logger.info(f"Created playlist: {playlist_id} with {len(images)} images")
+            
+            return jsonify({
+                'success': True,
+                'playlist': playlist_data
+            }), 201
+            
+        except Exception as e:
+            logger.error(f"Create playlist failed: {e}")
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/playlists/stop', methods=['POST'])
     def stop_playlist():
         """Stop current playlist playback"""
