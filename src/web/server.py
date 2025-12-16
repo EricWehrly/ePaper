@@ -45,6 +45,16 @@ def create_app(epaper_controller=None):
     # This allows development on HTTP while securing production
     app.config['SESSION_COOKIE_SECURE'] = False  # Let the app decide based on request
     
+    # Increase max upload size for image bundles (200MB)
+    # TODO: Implement client-side zip compression to optimize network transfer
+    # This would allow smaller payloads while supporting more images
+    max_upload_mb = 200
+    app.config['MAX_CONTENT_LENGTH'] = max_upload_mb * 1024 * 1024
+    logger.info(f"📤 Max upload size: {max_upload_mb}MB (Flask limit)")
+    logger.warning("⚠️  Nginx reverse proxy must also allow large uploads:")
+    logger.warning("   Add 'client_max_body_size 200M;' to nginx config")
+    logger.warning("   See docs/NGINX_CONFIG.md for details")
+    
     # Store controller reference for routes to access
     app.epaper_controller = epaper_controller
     

@@ -271,7 +271,10 @@ def register_routes(app):
         controller = get_controller()
         
         if request.method == 'GET':
-            return jsonify(controller.settings)
+            settings = controller.settings.copy()
+            # Add max upload size in bytes (16MB default for Flask)
+            settings['max_upload_size'] = app.config.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024)
+            return jsonify(settings)
         
         data = request.get_json(force=True, silent=True) or {}
         
@@ -335,6 +338,7 @@ def register_routes(app):
             return create_error_response("No files selected", 400)
         
         uploaded_files = []
+        skipped_files = []
         
         for file in files:
             if file.filename == '':
@@ -349,6 +353,19 @@ def register_routes(app):
             safe_filename = secure_filename(file.filename)
             if not safe_filename:
                 logger.warning(f"Invalid filename: {file.filename}")
+                continue
+            
+            # Check if already converted (deduplication)
+            # Use the original base name to check, before duplicate handling
+            original_base_name = Path(safe_filename).stem
+            converted_path = controller.output_dir / f"{original_base_name}.bmp"
+            if converted_path.exists():
+                logger.info(f"Skipping {safe_filename} - already converted as {converted_path.name}")
+                skipped_files.append({
+                    "filename": safe_filename,
+                    "reason": "already_converted",
+                    "converted_as": converted_path.name
+                })
                 continue
             
             # Save to pic-raw directory with duplicate handling
@@ -375,13 +392,19 @@ def register_routes(app):
                 queue_id = controller.conversion_queue.add_file(file_path)
                 uploaded_files[-1]["queue_id"] = queue_id
         
-        if not uploaded_files:
+        if not uploaded_files and not skipped_files:
             return create_error_response("No valid image files uploaded", 400)
+        
+        message = f"Uploaded {len(uploaded_files)} file(s)"
+        if skipped_files:
+            message += f", skipped {len(skipped_files)} already converted"
         
         return create_success_response({
             "uploaded_files": uploaded_files,
-            "count": len(uploaded_files)
-        }, f"Uploaded {len(uploaded_files)} file(s) and added to conversion queue")
+            "skipped_files": skipped_files,
+            "count": len(uploaded_files),
+            "skipped_count": len(skipped_files)
+        }, message)
 
     @app.route('/api/queue/status', methods=['GET'])
     def get_queue_status():
