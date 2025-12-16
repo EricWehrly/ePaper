@@ -1,3 +1,16 @@
+# Chisel Client Configuration
+# 
+# This client connects TO the Chisel server running on AWS EC2.
+# The server is created by Terraform in the infrastructure/ directory.
+#
+# If you see "no such host" errors:
+# 1. Check if AWS infrastructure is deployed: cd infrastructure && terraform output
+# 2. Verify DNS works: ping epaper.whirlwind.family
+# 3. See infrastructure/README.md for troubleshooting
+#
+# Connection flow: 
+#   Docker (this) → Internet → AWS EC2 (epaper.whirlwind.family:8080) → Your domain
+
 services:
   chisel-client:
     image: jpillora/chisel:latest
@@ -6,8 +19,8 @@ services:
       - client
       - --auth
       - Wis0hlJ4eL6lVwYZ3ftR5zkXCwrqTpzlICBdShfv8rJolKJU3St7xwN7brKu6IQc
-      - http://epaper.whirlwind.family:8080
-      - R:5000:epaper-display:5000
+      - http://epaper.whirlwind.family:8080   # ← Chisel server on AWS (domain name, HTTP for Chisel protocol)
+      - R:5000:epaper-display:5000            # ← Forward port 5000 from server to local container
     logging:
       driver: "json-file"
       options:
