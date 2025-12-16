@@ -1,6 +1,10 @@
 variable "domain_name" {
   description = "The domain name for the Chisel tunnel (e.g., epaper.yourdomain.com)"
   type        = string
+  validation {
+    condition     = length(regexall("[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", var.domain_name)) > 0
+    error_message = "domain_name must be a valid domain (e.g., epaper.example.com)"
+  }
 }
 
 variable "hosted_zone_id" {
@@ -44,6 +48,18 @@ variable "generate_client_config" {
   description = "Generate Chisel client configuration files (.env.chisel) in the project root"
   type        = bool
   default     = false
+}
+
+variable "enable_certbot_staging" {
+  description = "Use Let's Encrypt staging environment to avoid hitting production rate limits while testing"
+  type        = bool
+  default     = true
+}
+
+variable "use_letsencrypt_s3" {
+  description = "Enable S3 caching for Let's Encrypt certificates (recommended to avoid rate limits)"
+  type        = bool
+  default     = true
 }
 
 variable "chisel_upstream" {
