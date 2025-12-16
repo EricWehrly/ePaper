@@ -12,7 +12,12 @@ locals {
   
   user_data = base64encode(templatefile("${path.module}/templates/chisel-server-init.sh", {
     chisel_auth = local.actual_chisel_auth
+    CHISEL_AUTH = local.actual_chisel_auth
     domain_name = var.domain_name
+    enable_certbot_staging = var.enable_certbot_staging
+    letsencrypt_bucket = aws_s3_bucket.letsencrypt.bucket
+    CERT_ARCHIVE = "${var.domain_name}.tar.gz"
+    letsencrypt_enabled = var.use_letsencrypt_s3
   }))
 }
 
