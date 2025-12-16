@@ -301,50 +301,261 @@ async function stopCurrentPlaylist() {
  * Setup drag and drop for playlist creation
  */
 function setupPlaylistDragDrop() {
-  const dropZone = document.getElementById('playlistDropZone');
-  if (!dropZone) return;
+  // TODO: Make a proper drop zone that appears on drag instead of using whole document
+  
+  let dragCounter = 0;
 
-  let draggedImages = [];
-
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.add('drag-over');
+  // Show visual feedback when dragging files into window
+  document.addEventListener('dragenter', (e) => {
+    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+      dragCounter++;
+      document.body.classList.add('dragging-files');
+    }
   });
 
-  dropZone.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove('drag-over');
-  });
-
-  dropZone.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove('drag-over');
-
-    const transferData = e.dataTransfer.getData('application/x-epaper-images');
-    if (transferData) {
-      try {
-        draggedImages = JSON.parse(transferData);
-        await createPlaylistFromImages(draggedImages);
-      } catch (error) {
-        console.error('Failed to parse dropped images:', error);
+  document.addEventListener('dragleave', (e) => {
+    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+      dragCounter--;
+      if (dragCounter === 0) {
+        document.body.classList.remove('dragging-files');
       }
     }
   });
 
-  document.querySelectorAll('#thumbList .thumb img').forEach(img => {
-    img.parentElement.setAttribute('draggable', 'true');
-    
-    img.parentElement.addEventListener('dragstart', (e) => {
-      const imageSrc = img.getAttribute('src');
-      const imageName = img.getAttribute('alt') || img.getAttribute('title');
-      
-      e.dataTransfer.effectAllowed = 'copy';
-      e.dataTransfer.setData('application/x-epaper-images', JSON.stringify([imageName]));
-    });
+  // Prevent default drag behavior on document
+  document.addEventListener('dragover', (e) => {
+    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+    }
   });
+
+  // Handle drops anywhere on the document
+  document.addEventListener('drop', async (e) => {
+    // Handle file drops from OS
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      dragCounter = 0;
+      document.body.classList.remove('dragging-files');
+      await handleFileDrop(e.dataTransfer.files);
+    }
+  });
+}
+
+/**
+ * Upload a batch of files
+ * @param {File[]} files - Array of files to upload
+ * @returns {Promise<Object>} Upload result
+ */
+async function uploadBatch(files) {
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData
+  });
+
+  console.log('Upload response status:', response.status, response.statusText);
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('Upload failed response:', text.substring(0, 500));
+    
+    // Provide helpful error messages
+    if (response.status === 413) {
+      const error = new Error(`Upload too large (nginx limit reached)`);
+      error.status = 413;
+      throw error;
+    } else if (response.status === 500 && (text.includes('<!DOCTYPE') || text.includes('<html'))) {
+      throw new Error(`Server error. Check console for details. Status: ${response.status}`);
+    } else {
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+    }
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    console.error('Received non-JSON response:', text.substring(0, 500));
+    throw new Error(`Server returned HTML instead of JSON. This usually means an error occurred. Check console for details.`);
+  }
+
+  const result = await response.json();
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Upload failed');
+  }
+  
+  return result;
+}
+
+/**
+ * Handle files dropped from OS
+ */
+async function handleFileDrop(files) {
+  // Filter for image files - include all image types
+  const imageFiles = Array.from(files).filter(file => 
+    file.type.startsWith('image/') || 
+    file.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp|heic|heif)$/)
+  );
+
+  if (imageFiles.length === 0) {
+    const msg = 'Please drop image files';
+    console.warn('ALERT:', msg);
+    alert(msg);
+    return;
+  }
+
+  try {
+    console.log('Uploading files:', imageFiles.map(f => `${f.name} (${(f.size / 1024 / 1024).toFixed(2)}MB)`));
+    
+    // TODO: Implement client-side zip compression for efficient multi-image upload
+    // This would compress images into a zip file before sending, reducing network transfer
+    // and allowing more images per upload while staying under size limits
+    
+    // Get max upload size from settings
+    const settingsResponse = await fetch('/api/settings');
+    const settings = await settingsResponse.json();
+    const maxUploadSize = settings.max_upload_size || (200 * 1024 * 1024); // 200MB default
+    
+    console.log('Max upload size:', (maxUploadSize / 1024 / 1024).toFixed(1), 'MB');
+    
+    // Batch files to stay under max upload size (with 20% safety margin)
+    const safeMaxSize = maxUploadSize * 0.8;
+    const batches = [];
+    let currentBatch = [];
+    let currentBatchSize = 0;
+    
+    for (const file of imageFiles) {
+      // If single file is too large, skip it
+      if (file.size > safeMaxSize) {
+        const msg = `File "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max size is ${(safeMaxSize / 1024 / 1024).toFixed(1)}MB`;
+        console.warn('ALERT:', msg);
+        alert(msg);
+        continue;
+      }
+      
+      // If adding this file would exceed batch size, start new batch
+      if (currentBatchSize + file.size > safeMaxSize && currentBatch.length > 0) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentBatchSize = 0;
+      }
+      
+      currentBatch.push(file);
+      currentBatchSize += file.size;
+    }
+    
+    // Add final batch
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+    
+    if (batches.length === 0) {
+      const msg = 'No valid files to upload';
+      console.warn('ALERT:', msg);
+      alert(msg);
+      return;
+    }
+    
+    console.log(`Uploading ${imageFiles.length} files in ${batches.length} batch(es)`);
+    
+    // Upload batches sequentially
+    const allUploadedNames = [];
+    let failedBatch = null;
+    
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const batchSize = batch.reduce((sum, f) => sum + f.size, 0);
+      console.log(`Uploading batch ${i + 1}/${batches.length} (${batch.length} files, ${(batchSize / 1024 / 1024).toFixed(2)}MB)`);
+      
+      try {
+        const result = await uploadBatch(batch);
+        
+        // Collect uploaded filenames (without extensions for playlist)
+        const uploadedNames = result.uploaded_files.map(f => {
+          const name = f.filename;
+          return name.substring(0, name.lastIndexOf('.')) || name;
+        });
+        
+        allUploadedNames.push(...uploadedNames);
+      } catch (error) {
+        // If batch upload fails with 413, try uploading files one at a time
+        if (error.status === 413 && batch.length > 1) {
+          console.warn(`Batch ${i + 1} too large (${(batchSize / 1024 / 1024).toFixed(2)}MB), falling back to one-at-a-time upload`);
+          
+          for (let j = 0; j < batch.length; j++) {
+            const file = batch[j];
+            console.log(`  Uploading file ${j + 1}/${batch.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+            
+            try {
+              const result = await uploadBatch([file]);
+              const uploadedNames = result.uploaded_files.map(f => {
+                const name = f.filename;
+                return name.substring(0, name.lastIndexOf('.')) || name;
+              });
+              allUploadedNames.push(...uploadedNames);
+            } catch (singleError) {
+              console.error(`Failed to upload ${file.name}:`, singleError);
+              // Continue with other files
+            }
+          }
+        } else {
+          // For other errors or single-file failures, record and continue
+          console.error(`Batch ${i + 1} failed:`, error);
+          failedBatch = error;
+        }
+      }
+    }
+
+    // Check if we have files to create playlist from
+    if (allUploadedNames.length === 0) {
+      if (failedBatch) {
+        const msg = `Upload failed: ${failedBatch.message}\n\nNote: If you see "413 Payload Too Large" from nginx, the server administrator needs to increase nginx's client_max_body_size setting.`;
+        console.error('ALERT:', msg);
+        alert(msg);
+        return;
+      }
+      
+      // If all files were skipped (already converted), still create playlist with them
+      console.log('All files already converted, creating playlist from existing files');
+      
+      // Get base names from the original dropped files
+      const existingImageNames = imageFiles.map(f => {
+        const name = f.name;
+        return name.substring(0, name.lastIndexOf('.')) || name;
+      });
+      
+      if (existingImageNames.length > 0) {
+        await createPlaylistFromImages(existingImageNames);
+        return;
+      }
+      
+      const msg = 'No files to create playlist from';
+      console.warn('ALERT:', msg);
+      alert(msg);
+      return;
+    }
+
+    console.log(`Successfully uploaded ${allUploadedNames.length} files`);
+
+    // Wait a moment for conversion to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Create playlist from uploaded images
+    await createPlaylistFromImages(allUploadedNames);
+    
+  } catch (error) {
+    console.error('Failed to handle file drop:', error);
+    let errorMessage = `Failed to upload files: ${error.message}`;
+    if (error.status === 413) {
+      errorMessage += '\n\nNote: nginx is blocking large uploads. Server admin needs to add:\nclient_max_body_size 200M;\nto nginx configuration.';
+    }
+    console.error('ALERT:', errorMessage);
+    alert(errorMessage);
+  }
 }
 
 /**
@@ -356,14 +567,74 @@ async function createPlaylistFromImages(imageNames) {
     return;
   }
 
-  const playlistName = prompt(`Create playlist with ${imageNames.length} images.\n\nEnter playlist name:`);
-  if (!playlistName || !playlistName.trim()) {
+  // Show the prompt UI at the bottom
+  const promptElement = document.getElementById('playlistNamePrompt');
+  const inputElement = document.getElementById('playlistNameInput');
+  const createBtn = document.getElementById('createPlaylistBtn');
+  const cancelBtn = document.getElementById('cancelPlaylistBtn');
+
+  if (!promptElement || !inputElement || !createBtn || !cancelBtn) {
+    // Fallback to browser prompt if elements not found
+    const playlistName = prompt(`Create playlist with ${imageNames.length} images.\n\nEnter playlist name:`);
+    if (!playlistName || !playlistName.trim()) {
+      return;
+    }
+    await submitPlaylistCreation(playlistName.trim(), imageNames);
     return;
   }
 
+  // Show prompt and focus input
+  promptElement.style.display = 'flex';
+  inputElement.value = '';
+  inputElement.placeholder = `Create playlist with ${imageNames.length} images...`;
+  inputElement.focus();
+
+  // Handle create button
+  const handleCreate = async () => {
+    const playlistName = inputElement.value.trim();
+    if (!playlistName) {
+      inputElement.focus();
+      return;
+    }
+    cleanup();
+    await submitPlaylistCreation(playlistName, imageNames);
+  };
+
+  // Handle cancel button
+  const handleCancel = () => {
+    cleanup();
+  };
+
+  // Handle Enter key
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleCreate();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  // Cleanup function
+  const cleanup = () => {
+    promptElement.style.display = 'none';
+    createBtn.removeEventListener('click', handleCreate);
+    cancelBtn.removeEventListener('click', handleCancel);
+    inputElement.removeEventListener('keypress', handleKeyPress);
+  };
+
+  // Attach event listeners
+  createBtn.addEventListener('click', handleCreate);
+  cancelBtn.addEventListener('click', handleCancel);
+  inputElement.addEventListener('keypress', handleKeyPress);
+}
+
+/**
+ * Submit playlist creation to server
+ */
+async function submitPlaylistCreation(playlistName, imageNames) {
   try {
     const response = await apiPost('/api/playlists', {
-      name: playlistName.trim(),
+      name: playlistName,
       images: imageNames,
       interval: 30,
       orientation: 'portrait'

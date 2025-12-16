@@ -1489,6 +1489,18 @@ select:focus {
     background: var(--surface-secondary);
     transition: all 0.3s ease;
     cursor: pointer;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+}
+
+.playlist-drop-zone.drag-active {
+    opacity: 1;
+    max-height: 300px;
+    padding: var(--spacing-xxl);
+    margin: var(--spacing-lg) 0;
 }
 
 .playlist-drop-zone:hover {
@@ -1529,5 +1541,64 @@ select:focus {
 .thumb.dragging {
     opacity: 0.5;
     transform: scale(0.95);
+}
+
+/* Playlist drag hint */
+.playlist-drag-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+/* Visual feedback when dragging files over document */
+body.dragging-files .playlist-drag-hint {
+    background: var(--primary-light);
+    border: 2px dashed var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+    padding: var(--spacing-md);
+    transform: scale(1.05);
+}
+
+body.dragging-files #playlistsTabPane {
+    background: var(--surface-secondary);
+    outline: 3px dashed var(--primary);
+    outline-offset: -10px;
+}
+
+/* Playlist name prompt at bottom */
+.playlist-name-prompt {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+    background: var(--surface-secondary);
+    border-radius: var(--border-radius);
+}
+
+.playlist-name-input {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius);
+    background: var(--surface);
+    color: var(--text);
+    font-size: var(--font-size-base);
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.playlist-name-input:focus {
+    border-color: var(--primary);
+}
+
+.playlist-name-prompt .ctl-btn {
+    white-space: nowrap;
 }
 

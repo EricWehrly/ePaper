@@ -93,17 +93,17 @@
                   </div>
                 </div>
                 
-                <!-- Drag and Drop Zone for Creating Playlists -->
-                <div class="playlist-drop-zone" id="playlistDropZone">
-                  <div class="drop-zone-content">
-                    <div class="drop-zone-icon">📋</div>
-                    <div class="drop-zone-text">Drop images here to create a playlist</div>
-                    <div class="drop-zone-hint">or drag from library above</div>
-                  </div>
-                </div>
+                <div class="playlist-drag-hint">💡 Drag images from your computer here to create a playlist</div>
                 
                 <div class="playlist-list" id="playlistList">
                   <!-- Playlists will be loaded here -->
+                </div>
+                
+                <!-- Playlist name input (shown when dragging) -->
+                <div class="playlist-name-prompt" id="playlistNamePrompt" style="display: none;">
+                  <input type="text" id="playlistNameInput" placeholder="Enter playlist name..." class="playlist-name-input" />
+                  <button id="createPlaylistBtn" class="ctl-btn control primary small">Create</button>
+                  <button id="cancelPlaylistBtn" class="ctl-btn control small">Cancel</button>
                 </div>
               </div>
             </div>
