@@ -49,7 +49,7 @@ def register_routes(app):
             "busy": controller.is_busy(),
             "carousel_active": getattr(controller, '_carousel_active', False),
             "last_display_completion": getattr(controller, '_last_display_completion', None),
-            "settings": controller.settings,
+            "settings": controller.settings.get_all(),
             "image_counts": {
                 "source": source_count,
                 "converted": converted_count
@@ -271,7 +271,7 @@ def register_routes(app):
         controller = get_controller()
         
         if request.method == 'GET':
-            settings = controller.settings.copy()
+            settings = controller.settings.get_all()
             # Add max upload size in bytes (16MB default for Flask)
             settings['max_upload_size'] = app.config.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024)
             return jsonify(settings)
@@ -297,10 +297,11 @@ def register_routes(app):
         # Update ngrok_redirect settings
         if 'ngrok_redirect' in data:
             if isinstance(data['ngrok_redirect'], dict):
-                controller.settings['ngrok_redirect'].update(data['ngrok_redirect'])
-                controller._save_settings()
+                ngrok_settings = controller.settings.get('ngrok_redirect', {})
+                ngrok_settings.update(data['ngrok_redirect'])
+                controller.settings.set('ngrok_redirect', ngrok_settings)
         
-        return create_success_response({"settings": controller.settings})
+        return create_success_response({"settings": controller.settings.get_all()})
 
     # ------------- Navigation Endpoints -------------
     @app.route('/api/display/next', methods=['POST'])

@@ -33,6 +33,7 @@ setup_project_paths()
 from src import convert, filesystem, display
 from src.scoring import sort_images_by_quality
 from src.web import start_server
+from src.settings import Settings
 
 # Configure logging
 logging.basicConfig(
@@ -63,27 +64,14 @@ class ePaperController:
         # Persistence paths
         project_root = get_project_root()
         self.config_dir = project_root / 'config'
-        self.config_dir.mkdir(exist_ok=True)
+        self.config_dir.mkdir(parents=True, exist_ok=True)
         self.settings_path = self.config_dir / 'settings.json'
         self.state_path = self.config_dir / 'state.json'
-        # Default runtime settings (will be overridden by persisted ones if available)
-        self.settings = {
-            'mode': 'image',           # 'image', 'carousel', or 'playlist'
-            'autoplay': False,         # server-driven carousel active
-            'interval_sec': 30,        # seconds between images in carousel
-            'orientation': 'portrait', # 'portrait' | 'landscape'
-            'playlist': {              # playlist-specific settings
-                'current_id': None,    # ID of currently playing playlist
-                'current_index': 0,    # Current image index in playlist
-                'loop': True           # Whether to loop playlist
-            },
-            'ngrok_redirect': {        # ngrok redirect banner configuration
-                'enabled': True,
-                'countdown_seconds': 7
-            }
-        }
-        # Load any persisted settings and state
-        self._load_settings()
+        
+        # Load settings (applies defaults for missing values, doesn't save)
+        self.settings = Settings(self.settings_path)
+        
+        # Load runtime state
         self._load_state()
         
         # Display orientation - initialize based on settings
@@ -102,31 +90,6 @@ class ePaperController:
         
         # Conversion queue
         self.conversion_queue = None
-
-    # ---------------- Settings Persistence ----------------
-    def _load_settings(self):
-        try:
-            if self.settings_path.exists():
-                with open(self.settings_path, 'r') as f:
-                    data = json.load(f)
-                if isinstance(data, dict):
-                    # Update simple settings
-                    for k, v in data.items():
-                        if k in self.settings:
-                            if isinstance(self.settings[k], dict) and isinstance(v, dict):
-                                # Handle nested dictionaries (like ngrok_redirect)
-                                self.settings[k].update(v)
-                            else:
-                                self.settings[k] = v
-        except Exception as e:
-            logger.warning(f"Failed to load settings: {e}")
-
-    def _save_settings(self):
-        try:
-            with open(self.settings_path, 'w') as f:
-                json.dump(self.settings, f, indent=2)
-        except Exception as e:
-            logger.warning(f"Failed to save settings: {e}")
 
     # ---------------- State Persistence ----------------
     def _load_state(self):
@@ -220,8 +183,7 @@ class ePaperController:
             portrait_mode: True for portrait (400x600), False for landscape (600x400)
         """
         display.set_display_orientation(portrait_mode)
-        self.settings['orientation'] = 'portrait' if portrait_mode else 'landscape'
-        self._save_settings()
+        self.settings.set('orientation', 'portrait' if portrait_mode else 'landscape')
         # TODO: (Deferred) trigger reconversion of images when orientation changes
         
     def setup_signal_handlers(self):
@@ -388,9 +350,7 @@ class ePaperController:
         if self._carousel_thread and self._carousel_thread.is_alive():
             return
         self._carousel_stop_event.clear()
-        self.settings['autoplay'] = True
-        self.settings['mode'] = 'carousel'
-        self._save_settings()
+        self.settings.update({'autoplay': True, 'mode': 'carousel'})
         self._carousel_thread = threading.Thread(target=self._carousel_loop, daemon=True)
         self._carousel_thread.start()
 
@@ -398,9 +358,7 @@ class ePaperController:
         if self._carousel_thread and self._carousel_thread.is_alive():
             self._carousel_stop_event.set()
             self._carousel_thread.join(timeout=2)
-        self.settings['autoplay'] = False
-        self.settings['mode'] = 'image'
-        self._save_settings()
+        self.settings.update({'autoplay': False, 'mode': 'image'})
 
     def _carousel_loop(self):
         self._carousel_active = True
@@ -461,26 +419,24 @@ class ePaperController:
             self._carousel_active = False
 
     def set_interval(self, interval_sec: int):
-        self.settings['interval_sec'] = max(5, int(interval_sec))
-        self._save_settings()
+        self.settings.set('interval_sec', max(5, int(interval_sec)))
 
     def set_mode(self, mode: str):
         if mode not in ('image','carousel','playlist'):
             return
         
         # Stop current mode
-        if self.settings['mode'] == 'carousel':
+        if self.settings.get('mode') == 'carousel':
             self.stop_carousel()
-        elif self.settings['mode'] == 'playlist':
+        elif self.settings.get('mode') == 'playlist':
             self.stop_playlist()
         
-        self.settings['mode'] = mode
+        self.settings.set('mode', mode)
         if mode == 'carousel':
             self.start_carousel()
         elif mode == 'playlist':
             # Playlist mode requires explicit start with playlist ID
             pass
-        self._save_settings()
 
     def next_image(self):
         images = list(self.output_dir.glob('*.bmp'))
@@ -534,11 +490,14 @@ class ePaperController:
             raise ValueError(f"Playlist '{playlist_id}' has no images")
         
         # Update settings
-        self.settings['mode'] = 'playlist'
-        self.settings['autoplay'] = True
-        self.settings['playlist']['current_id'] = playlist_id
-        self.settings['playlist']['current_index'] = max(0, min(start_index, len(playlist_data['images']) - 1))
-        self._save_settings()
+        playlist_settings = self.settings.get('playlist', {})
+        playlist_settings['current_id'] = playlist_id
+        playlist_settings['current_index'] = max(0, min(start_index, len(playlist_data['images']) - 1))
+        self.settings.update({
+            'mode': 'playlist',
+            'autoplay': True,
+            'playlist': playlist_settings
+        })
         
         # Start playlist thread
         if self._carousel_thread and self._carousel_thread.is_alive():
@@ -557,30 +516,30 @@ class ePaperController:
             self._carousel_stop_event.set()
             self._carousel_thread.join(timeout=2)
         
-        self.settings['autoplay'] = False
-        self.settings['mode'] = 'image'
-        self.settings['playlist']['current_id'] = None
-        self.settings['playlist']['current_index'] = 0
-        self._save_settings()
+        self.settings.update({
+            'autoplay': False,
+            'mode': 'image',
+            'playlist': {'current_id': None, 'current_index': 0, 'loop': True}
+        })
 
     def _playlist_loop(self, playlist_data):
         """Internal playlist playback loop."""
         self._carousel_active = True
         
         try:
-            playlist_id = self.settings['playlist']['current_id']
+            playlist_id = self.settings.get('playlist', {}).get('current_id')
             images = playlist_data['images']
             delay_ms = playlist_data.get('delay', 5000)
             interval_sec = max(1, delay_ms // 1000)  # Convert ms to seconds
             
             # Start from saved index
-            current_index = self.settings['playlist']['current_index']
+            current_index = self.settings.get('playlist', {}).get('current_index', 0)
             
             while not self._carousel_stop_event.is_set() and self.running:
                 try:
                     # Validate index
                     if current_index >= len(images):
-                        if self.settings['playlist']['loop']:
+                        if self.settings.get('playlist', {}).get('loop', True):
                             current_index = 0
                         else:
                             # Playlist finished, stop
@@ -611,8 +570,9 @@ class ePaperController:
                         break
                     
                     # Update index before display for persistence
-                    self.settings['playlist']['current_index'] = current_index
-                    self._save_settings()
+                    playlist_settings = self.settings.get('playlist', {})
+                    playlist_settings['current_index'] = current_index
+                    self.settings.set('playlist', playlist_settings)
                     
                     # Set busy state and display image
                     with self._busy_lock:
@@ -650,8 +610,9 @@ class ePaperController:
             self._carousel_active = False
             # Save final state
             if current_index < len(images):
-                self.settings['playlist']['current_index'] = current_index
-                self._save_settings()
+                playlist_settings = self.settings.get('playlist', {})
+                playlist_settings['current_index'] = current_index
+                self.settings.set('playlist', playlist_settings)
         
     def run_standalone(self):
         """Run in standalone mode - convert and display images in a loop"""

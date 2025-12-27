@@ -2,6 +2,12 @@
 # needed for compiling RPi.GPIO and spidev native extensions for GPIO access
 FROM python:3.11
 
+# TODO: Embed git commit ID into index.html comment at build time for version tracking
+#       - Add ARG COMMIT_ID to Dockerfile
+#       - Pass --build-arg COMMIT_ID=$(git rev-parse HEAD) in build command
+#       - Inject into src/web/templates/index.html as <!-- Build: ${COMMIT_ID} -->
+#       - Allows verifying deployed version matches source
+
 WORKDIR /app
 
 # Note: Standard python:3.11 image already includes all image processing libraries
