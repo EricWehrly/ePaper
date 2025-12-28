@@ -70,6 +70,8 @@ services:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
       - PYTHONPATH=/app
-    command: flask run --host=0.0.0.0 --port=5000 --reload
+    # Run via project entrypoint so the dev container starts our app directly and supports
+    # Python-level hot reload when using the built-in controller debug mode.
+    command: python -m src.main --mode web --host 0.0.0.0 --port 5000 --debug
     profiles:
       - dev
