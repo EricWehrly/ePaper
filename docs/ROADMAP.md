@@ -1,18 +1,18 @@
 # ePaper Display - Current Roadmap
 
-**Current Sprint Focus**: System service setup and quality improvements
+**Current Sprint Focus**: Albums/playlists system and UX improvements
 
 ---
 
 ## 🎯 IMMEDIATE PRIORITIES
 
-### Albums & Playlists System ✨ NEW BRANCH
-- **Status**: CURRENT FOCUS - HIGH PRIORITY
+### Albums & Playlists System
+- **Status**: IN PROGRESS - HIGH PRIORITY (Active Branch: playlist)
 - **Description**: Create curated image collections for organized photo management
 - **Features**:
   - Custom image albums/playlists
   - Album-based slideshow mode
-  - Drag-and-drop photo organization
+  - Drag-and-drop photo organization (including multiple images at once)
   - Album metadata (title, description, created date)
   - Quick album switching in UI
 
@@ -20,23 +20,39 @@
 - **Status**: PLANNED - HIGH PRIORITY  
 - **Description**: Create install/uninstall scripts for Pi system service
 - **Details**:
+  - Docker-based deployment
   - Systemd service configuration
   - Auto-start on boot functionality
   - Proper service lifecycle management
   - Clean uninstall process
 
-### Image Conversion Quality Testing
-- **Status**: ✅ COMPLETE - Major optimization achieved
-- **Description**: Optimized conversion pipeline with 110x performance improvement
-- **Completed**: 
-  - PIL quantization implementation (29.7s → 0.27s conversion time)
-  - Enhanced contrast preprocessing to reduce "washed out" appearance
-  - Comprehensive dithering method testing (Floyd-Steinberg selected as optimal)
-  - Legacy conversion settings documented for reference
-- **Future**: Revisit preprocessing optimization for enhanced visual quality (shallow exploration completed)
+---
+
+## 📋 PLANNED FEATURES
+
+### Smoother Library Loading
+- **Priority**: MEDIUM  
+- **Description**: Fix image loading UX issues in library view
+- **Issues**:
+  - Images showing 'broken image' icon before loading
+  - Dynamic scroll bar adjustment causing unintended page jumps
+  - No visual loading indicators
+- **Solutions**:
+  - Hide images until fully loaded
+  - Reserve space for images to prevent layout shifts
+  - Add spinner/loading indicators
+  - Show console/toast errors for failed loads with visual cues
+
+### Library Sort & Filter
+- **Priority**: MEDIUM
+- **Description**: Enhanced organization and discovery
+- **Features**:
+  - Tag images for filtering (person, object, place from metadata)
+  - Sort options (date, name, size, etc.)
+  - Search functionality
 
 ### Conversion Preset System
-- **Status**: TODO - MEDIUM PRIORITY  
+- **Priority**: MEDIUM
 - **Description**: User-selectable conversion configurations
 - **Features**:
   - Legacy conversion settings for comparison testing
@@ -46,23 +62,10 @@
   - Per-image-type preference saving
 
 ### Duplicate Detection System
-- **Status**: IN PROGRESS - LOW PRIORITY
+- **Priority**: LOW
 - **Description**: Prevent duplicate photo uploads
 - **Current**: Framework created in `photo_validation.js` 
 - **Next**: Implement hash comparison and user confirmation dialogs
-
----
-
-## 📋 UPCOMING FEATURES
-
-### Albums & Collections System
-- **Priority**: MEDIUM
-- **Description**: Create curated sets of images for cycling
-- **Features**:
-  - Custom image collections/albums
-  - Album-specific slideshow mode
-  - Favorite image management
-  - Collection-based scheduling
 
 ### Color Palette Customization
 - **Priority**: NICE TO HAVE
@@ -76,59 +79,52 @@
 
 ---
 
-## 🔧 TECHNICAL DEBT & UX IMPROVEMENTS
+## 🎨 UI IMPROVEMENTS
 
-### Timer System Overhaul
-- **Issue**: Autoplay timer includes display draw time, causing inconsistent intervals
-- **Fix**: Timer should only measure image display duration, not processing time
-- **Priority**: HIGH
+### Google Photos Icon
+- **Priority**: LOW
+- **Description**: Change "Photos" tab icon to recognizable Google Photos icon for clarity
 
 ### User Interface Polish
-- **Prev/Next Button Feedback**: Add visual/audio feedback for navigation actions
-- **Display Busy Indicator**: Move from lower-left to middle-top position  
-- **Active Image Indicator**: Show which image is currently selected/displayed
 - **Priority**: MEDIUM
+- **Description**: Improve feedback and visual indicators
+- **Items**:
+  - Prev/Next button feedback (visual/audio)
+  - Display busy indicator repositioned (lower-left → middle-top)
+  - Active image indicator showing current selection
+
+---
+
+## 🔧 TECHNICAL DEBT
+
+### Timer System Overhaul
+- **Priority**: HIGH
+- **Issue**: Autoplay timer includes display draw time, causing inconsistent intervals
+- **Fix**: Timer should only measure image display duration, not processing time
+
 
 ### Performance Optimization
-- **RequestAnimationFrame**: Implement for smoother frontend animations
-- **WebSocket Integration**: Reduce server polling pressure with real-time updates
-- **Worker Threads**: Explore background processing for heavy operations
 - **Priority**: LOW-MEDIUM
+- **Items**:
+  - RequestAnimationFrame for smoother frontend animations
+  - WebSocket integration to reduce server polling pressure
+  - Worker threads for background processing (heavy work already on backend)
 
 ---
 
 ## 📊 PROJECT STATUS
 
-**Core Features**: ✅ Complete (ePaper display, web interface, drag & drop, Google Photos, conversion pipeline, Docker/SSL)  
+**Core Features**: ✅ Complete (ePaper display, web interface, drag & drop, Google Photos, Docker/SSL)  
 **Performance**: ✅ Conversion optimized (110x faster: 29.7s → 0.27s via PIL quantization)  
 **Current Phase**: Albums/playlist system development  
 **Architecture**: Production-ready with containerized deployment
 
 ---
 
-## 🚀 DEVELOPMENT WORKFLOW
-
-### Current Focus
-1. **Format Testing Setup**: Create visual comparison tools for JPG vs PNG conversion quality
-2. **System Service**: Complete Pi service installation scripts
-3. **Duplicate Detection**: Finish implementation of photo validation system
-
-### Next Phase Planning  
-1. **User Experience**: Address timer inconsistencies and interface polish
-2. **Feature Expansion**: Begin albums/collections system design  
-3. **Performance**: Implement WebSocket updates and frontend optimization
-
-### Technical Standards
-- **Incremental commits**: Small, focused changes for easier review
-- **Documentation**: Update roadmap with each completed feature
-- **Testing**: Manual verification on actual ePaper hardware
-- **Code quality**: Maintain shared module architecture and clean separation
-
----
-
 ## 📝 NOTES
 
-- **Google Photos**: Integration is complete and stable
-- **Hardware**: All features designed to work gracefully without ePaper hardware connected
+- **Google Photos**: Integration complete and stable
+- **Hardware**: All features work gracefully without ePaper hardware connected
 - **Deployment**: Docker environment handles all dependencies and service management
-- **Architecture**: Shared upload modules established for consistent file handling across all input sources
+- **Architecture**: Shared upload modules for consistent file handling across all input sources
+- **Testing**: Integration tests via Playwright, unit tests via pytest
