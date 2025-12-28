@@ -13,9 +13,6 @@ A minimal Python project to display images on a Waveshare 4-inch e-Paper HAT+ (E
 
 ### Docker (Recommended)
 ```bash
-# Add user to docker group (one time setup - requires logout/login)
-sudo usermod -aG docker $USER
-
 # Quick start with Docker
 sudo docker compose up --build -d
 
@@ -26,6 +23,18 @@ sudo docker compose logs -f
 sudo docker compose down
 
 # Access web interface: http://localhost:5000
+```
+
+### Testing
+**See [docs/TESTING.md](../docs/TESTING.md) for complete testing guide.**
+
+Quick reference:
+```bash
+# Integration tests (Playwright - E2E browser tests)
+docker compose -f docker-compose.playwright.yml run --rm integration-tests
+
+# Unit tests (pytest - backend Python tests)
+docker compose run --rm epaper-dev pytest -q
 ```
 
 **Note**: The service runs gracefully without the e-Paper display hardware. When the display is not connected:

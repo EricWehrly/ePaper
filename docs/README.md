@@ -2,7 +2,12 @@
 
 This directory contains all project documentation organized for easy navigation.
 
-## 📋 CURRENT DOCUMENTATION
+## � QUICK START
+
+- **[TESTING.md](TESTING.md)** - How to run tests (integration & unit)
+- **[ROADMAP.md](ROADMAP.md)** - Current development priorities
+
+## �📋 CURRENT DOCUMENTATION
 
 ### Primary Roadmap
 - **[ROADMAP.md](ROADMAP.md)** - Main project roadmap with current priorities and completion status
@@ -19,6 +24,7 @@ This directory contains all project documentation organized for easy navigation.
 
 ### Development Documentation
 - **[ngrok_banner_testing.md](ngrok_banner_testing.md)** - Ngrok configuration and testing notes
+- **[NGINX_CONFIG.md](NGINX_CONFIG.md)** - Nginx reverse proxy configuration
 
 ---
 
@@ -30,6 +36,8 @@ The `archive/` folder contains completed implementation guides, historical plann
 - `google_photos_implementation.md` - Detailed Google Photos setup guide (✅ COMPLETED)
 - `google_photos_complete.md` - Final Google Photos implementation summary
 - `docker_setup.md` - Docker environment setup guide
+- `CLI_REFACTOR_SUMMARY.md` - CLI unification implementation (✅ COMPLETED)
+- `UI_REDESIGN_ROADMAP.md` - Tab-based UI redesign completion (✅ COMPLETED)
 
 ### Historical Planning Documents  
 - `google_photos_roadmap.md` - Original Google Photos planning (superseded by completion)
@@ -41,17 +49,17 @@ The `archive/` folder contains completed implementation guides, historical plann
 
 ### Development & Testing Notes
 - `google_cloud_setup.md` - Google Cloud project configuration
-- `ngrok_banner_testing.md` - Ngrok banner testing procedures
 
 ---
 
 ## 🗺️ NAVIGATION GUIDE
 
 ### For Current Development Work:
-1. **Start with**: [ROADMAP.md](ROADMAP.md) for current priorities
-2. **Feature planning**: [features_roadmap.md](features_roadmap.md)  
-3. **UI/UX work**: [interface_roadmap.md](interface_roadmap.md)
-4. **Code improvements**: [tech_debt_roadmap.md](tech_debt_roadmap.md)
+1. **Testing**: [TESTING.md](TESTING.md) - Run tests to validate changes
+2. **Priorities**: [ROADMAP.md](ROADMAP.md) - Current sprint focus
+3. **Feature planning**: [features_roadmap.md](features_roadmap.md)  
+4. **UI/UX work**: [interface_roadmap.md](interface_roadmap.md)
+5. **Code improvements**: [tech_debt_roadmap.md](tech_debt_roadmap.md)
 
 ### For Implementation Reference:
 - Check `archive/` for completed feature implementation guides
