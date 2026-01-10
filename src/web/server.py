@@ -153,16 +153,42 @@ def start_server(epaper_controller=None, host='0.0.0.0', port=5000, debug=False,
             from pathlib import Path
             import ssl as ssl_module
             
-            # Look for SSL certificates in config directory
+            # Certificate priority: Let's Encrypt > Self-signed
             project_root = Path(__file__).resolve().parents[2]  # Go up from src/web/server.py to project root
-            config_dir = project_root / 'config'
-            cert_file = config_dir / 'raspberrypi.local.crt'
-            key_file = config_dir / 'raspberrypi.local.key'
             
-            if cert_file.exists() and key_file.exists():
+            # Try Let's Encrypt first (preferred - trusted by browsers)
+            letsencrypt_dir = Path('/etc/letsencrypt/live/epaper.whirlwind.family')
+            le_cert = letsencrypt_dir / 'fullchain.pem'
+            le_key = letsencrypt_dir / 'privkey.pem'
+            
+            # Fallback to self-signed (for LAN access when Let's Encrypt unavailable)
+            config_dir = project_root / 'config'
+            self_signed_cert = config_dir / 'raspberrypi.local.crt'
+            self_signed_key = config_dir / 'raspberrypi.local.key'
+            
+            cert_file = None
+            key_file = None
+            cert_type = None
+            
+            # Debug logging to diagnose cert detection
+            logger.info(f"Checking Let's Encrypt cert: {le_cert}")
+            logger.info(f"  exists={le_cert.exists()}, key exists={le_key.exists()}")
+            
+            if le_cert.exists() and le_key.exists():
+                cert_file = le_cert
+                key_file = le_key
+                cert_type = "Let's Encrypt (trusted)"
+                logger.info("✅ Using Let's Encrypt certificate")
+            elif self_signed_cert.exists() and self_signed_key.exists():
+                cert_file = self_signed_cert
+                key_file = self_signed_key
+                cert_type = "Self-signed (browser warning expected)"
+                logger.info("⚠️  Falling back to self-signed certificate")
+            
+            if cert_file and key_file:
                 ssl_context = ssl_module.create_default_context(ssl_module.Purpose.CLIENT_AUTH)
                 ssl_context.load_cert_chain(str(cert_file), str(key_file))
-                logger.info(f"SSL enabled using certificates: {cert_file}")
+                logger.info(f"SSL enabled using {cert_type}: {cert_file}")
                 
                 # If SSL is enabled, start both HTTP and HTTPS servers on standard ports
                 if port == 5000:  # Default development port
@@ -190,7 +216,9 @@ def start_server(epaper_controller=None, host='0.0.0.0', port=5000, debug=False,
                     logger.info(f"Starting ePaper HTTPS server on {host}:{port}")
                     server = make_server(host, port, app, ssl_context=ssl_context)
             else:
-                logger.warning(f"SSL certificates not found at {cert_file} and {key_file}")
+                logger.warning(f"SSL certificates not found:")
+                logger.warning(f"  Let's Encrypt: {le_cert}")
+                logger.warning(f"  Self-signed: {self_signed_cert}")
                 logger.warning("Falling back to HTTP mode")
                 ssl_context = None
         except Exception as e:
