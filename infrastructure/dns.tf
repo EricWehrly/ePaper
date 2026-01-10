@@ -8,7 +8,9 @@ resource "aws_route53_record" "chisel" {
 
   depends_on = [aws_eip.chisel_server]
 }
+
 # NOTE: SSL/TLS is provisioned on the EC2 instance using certbot (Let's Encrypt).
+# DNS-01 ACME challenge records are automatically managed by certbot via IAM (see certbot-iam.tf).
 # 
 # FUTURE CONSIDERATION - ACM + ALB Approach:
 # If we want AWS-managed certificates and better scaling/reliability, we can:
