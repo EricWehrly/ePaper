@@ -178,9 +178,6 @@ if [ "$HAVE_CERT" = "false" ]; then
         echo "WARNING: certbot failed to obtain certificate. Will fall back to HTTP-only config."
         HAVE_CERT=false
     fi
-
-    # Ensure nginx is running again in any case
-    systemctl start nginx || true
 fi
 
 if [ "$HAVE_CERT" = "true" ]; then
@@ -275,9 +272,9 @@ if ! nginx -t; then
     exit 1
 fi
 
-# Enable and start nginx (first time start)
+# Enable and restart nginx (to reload HTTPS configuration if cert was obtained)
 systemctl enable nginx
-systemctl start nginx
+systemctl restart nginx
 
 # Verify nginx is running
 sleep 5
