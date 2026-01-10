@@ -8,6 +8,8 @@ services:
     volumes:
       # Mount config directory for credentials and SSL certificates
       - ./config:/app/config
+      # Mount Let's Encrypt certificates (shared with certbot)
+      - letsencrypt-certs:/etc/letsencrypt:ro
       # Mount pic directories for persistent storage
       - ./pic:/app/pic
       - ./pic-raw:/app/pic-raw
@@ -28,8 +30,28 @@ services:
     environment:
       - FLASK_ENV=development
       - PYTHONPATH=/app
-      - SSL_CERT_PATH=/app/config/raspberrypi.local.crt
-      - SSL_KEY_PATH=/app/config/raspberrypi.local.key
+      # Let's Encrypt cert paths (fallback to self-signed if not present)
+      - SSL_CERT_PATH=/etc/letsencrypt/live/epaper.whirlwind.family/fullchain.pem
+      - SSL_KEY_PATH=/etc/letsencrypt/live/epaper.whirlwind.family/privkey.pem
+      - SSL_CERT_PATH_FALLBACK=/app/config/raspberrypi.local.crt
+      - SSL_KEY_PATH_FALLBACK=/app/config/raspberrypi.local.key
+    restart: unless-stopped
+  
+  # Let's Encrypt certificate management (automated with Route53 DNS)
+  certbot:
+    image: certbot/dns-route53
+    volumes:
+      # Share certificate storage with main app
+      - letsencrypt-certs:/etc/letsencrypt
+      - letsencrypt-lib:/var/lib/letsencrypt
+      # Mount AWS credentials for Route53 DNS automation (managed by Terraform)
+      - ./config/certbot-aws-credentials:/root/.aws/credentials:ro
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+    # Initial cert request: docker compose run --rm certbot certonly --dns-route53 -d epaper.whirlwind.family --email eric@whirlwind.family --agree-tos
+    # Auto-renewal: certbot renew runs every 12 hours and renews certs within 30 days of expiry
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["trap 'exit 0' TERM; while :; do certbot renew --quiet && echo 'Certificate renewal check completed'; sleep 12h; done"]
     restart: unless-stopped
     
   # ngrok tunnel for Google OAuth (requires public domain)
@@ -58,7 +80,7 @@ services:
     container_name: epaper-chisel-client
     depends_on:
       - epaper-display
-        
+
   # Optional: Add a development container with hot reload
   epaper-dev:
     build: .
@@ -75,3 +97,10 @@ services:
     command: python -m src.main --mode web --host 0.0.0.0 --port 5000 --debug
     profiles:
       - dev
+
+# Named volumes for Let's Encrypt certificates
+volumes:
+  letsencrypt-certs:
+    driver: local
+  letsencrypt-lib:
+    driver: local
